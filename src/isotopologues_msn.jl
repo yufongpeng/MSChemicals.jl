@@ -21,11 +21,10 @@ end
 
 function isotopologues_elements_msx(element_dictionary, msfix, max_dictionary, max_proportion, proportioon_cutoff, precise)
     isempty(element_dictionary) && return (; Element = [get_isotope_vec(element_dictionary)], Mass = [mmi(element_dictionary) + msfix], Abundance = [float(1)])
-    element_isotope_pair = element_isotope_pairs(element_dictionary)
     element_chemical = [get_isotope_vec(max_dictionary)]
     abundance_chemical = [max_proportion]
     mass_chemical = [mmi(max_dictionary) + msfix]
-    rec_addminusisotopes!(element_chemical, mass_chemical, abundance_chemical, max_dictionary, element_isotope_pair, 1, first(mass_chemical), first(abundance_chemical), proportioon_cutoff, true, true, precise)
+    rec_addminusisotopes!(element_chemical, mass_chemical, abundance_chemical, max_dictionary, element_isotope_pairs(element_dictionary; sort = false), 1, first(mass_chemical), first(abundance_chemical), proportioon_cutoff, (true, true), precise)
     id = sortperm(abundance_chemical; rev = true)
     (; Element = element_chemical[id], Mass = mass_chemical[id], Abundance = abundance_chemical[id]) 
 end

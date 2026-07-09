@@ -59,15 +59,34 @@ Dictionary of elements of maximal abundance.
 function maximal_elements(elements)
     max_dictionary = copy(elements)
     for (e, m) in elements
-        x = minor_isotope(e)
-        abe = elements_abundance()[e]
-        abx = elements_abundance()[x]
-        n = floor(Int, m * (1 - abe) / (abe + abx))
-        if (max_dictionary[e] - n) / (n + 1) * abx / abe > 1
-            n += 1
+        m += 1
+        xs = elements_isotopes()[e]
+        ns = [floor(Int, m * elements_abundance()[x]) for x in xs]
+        if sum(ns) >= m
+            d = sum(ns) - m + 1
+            i = lastindex(ns)
+            while d > 0
+                if ns[i] > 0
+                    ns[i] -= 1
+                    d -= 1
+                else
+                    i -= 1
+                end
+            end
+        elseif sum(ns) < m - 1
+            d = m - sum(ns) - 1
+            while d > 0
+                _, i = findmax([elements_abundance()[x] / (ns[i] + 1) for (i, x) in enumerate(xs)])
+                ns[i] += 1 
+                d -= 1
+            end
         end
-        max_dictionary[e] -= n 
-        max_dictionary[x] = n
+        max_dictionary[e] = first(ns)
+        i = 1
+        while i < lastindex(ns)
+            i += 1
+            max_dictionary[xs[i]] = ns[i]
+        end
     end
     max_dictionary
 end
@@ -82,49 +101,32 @@ Distribute isotopes from `element_precursor` into `element_product` for parent e
 """
 function distribute_element_update!(update_fn, precise, prev, e, isotopes, element_precursor, element_product, max_dict = nothing)
     pn = get(element_product, e, 0)
-    filter!(!iselement, isotopes)
     pre = [get(element_precursor, x, 0) for x in isotopes]
-    spre = sum(pre)
-    en = get(element_precursor, e, 0) + spre
-    if isempty(pre)
-        return prev
-    elseif en == 0
+    en = sum(pre)
+    if en == 0
         return prev
     end
-    pro = [round(Int, x * pn / en) for x in pre]
+    divrem_pro = [divrem(x * pn, en) for x in pre]
+    pro = first.(divrem_pro)
     spro = sum(pro)
-    if spro > pn
-        delta = spro - pn 
+    if spro < pn
+        delta = pn - spro 
+        id = sortperm(divrem_pro; by = last, rev = true)
         i = 1
         while delta > 0 
-            if pro[i] > 0 
-                pro[i] -= 1 
-                delta -= 1
-            else
-                i += 1 
-            end
+            pro[id[i]] += 1 
+            delta -= 1
+            i += 1 
         end
-        spro = pn
-    elseif spre - spro > en - pn 
-        delta = spre - spro - en + pn 
-        i = 1 
-        while delta > 0 
-            if pre[i] > pro[i] 
-                pro[i] += 1 
-                delta -= 1
-            else
-                i += 1 
-            end
-        end
-        spro = sum(pro)
     end
     update_max_dict!(max_dict, e, isotopes, pro)
-    update_fn(precise, prev, en, spre, pre, pn, spro, pro)
+    update_fn(precise, prev, pre, pro)
 end
 
 update_max_dict!(max_dict::Nothing, e, isotopes, pro) = nothing
 function update_max_dict!(max_dict::Dict, e, isotopes, pro) 
     for (x, n) in zip(isotopes, pro) 
+        x == e && continue
         get!(max_dict, x, 0)
         max_dict[x] += n
         get!(max_dict, e, 0)
@@ -144,14 +146,14 @@ function maximal_proportion(precise::Val, element_precursor, element_product, pr
     return_abundance(precise, prev)
 end
 
-update_maximal_proportion(::Val{true}, p, en, spre, pre, pn, spro, pro) = 
-    p * multinomial(big(pn - spro), pro...) / multinomial(big(en - spre), pre...) * multinomial(big(en - pn - spre + spro), (pre .- pro)...)
+update_maximal_proportion(::Val{true}, p, pre, pro) = 
+    p * multinomial(big.(pro)...) / multinomial(big.(pre)...) * multinomial((big(x) - y for (x, y) in zip(pre, pro))...)
 
-function update_maximal_proportion(::Val{false}, p, en, spre, pre, pn, spro, pro) 
-    if check_overflow_multinomial(en - spre, pre...)
-        p * multinomial(big(pn - spro), pro...) / multinomial(big(en - spre), pre...) * multinomial(big(en - pn - spre + spro), (pre .- pro)...)
+function update_maximal_proportion(::Val{false}, p, pre, pro) 
+    if check_overflow_multinomial(pre...)
+        p * multinomial(big.(pro)...) / multinomial(big.(pre)...) * multinomial((big(x) - y for (x, y) in zip(pre, pro))...)
     else
-        p * multinomial(pn - spro, pro...) / multinomial(en - spre, pre...) * multinomial(en - pn - spre + spro, (pre .- pro)...)
+        p * multinomial(pro...) / multinomial(pre...) * multinomial((pre .- pro)...)
     end
 end
 
@@ -193,15 +195,15 @@ function maximal_combination_elements(precise::Val, element_precursor, element_p
     return_abundance(precise, prev), first_element_product_dictionary
 end
 
-update_maximal_combination(::Val{true}, p, en, spre, pre, pn, spro, pro) = 
-    p * multinomial(big(pn - spro), pro...) * multinomial(big(en - pn - spre + spro), (pre .- pro)...)
+update_maximal_combination(::Val{true}, p, pre, pro) = 
+    p * multinomial(big.(pro)...) * multinomial((big(x) - y for (x, y) in zip(pre, pro))...)
 
-function update_maximal_combination(::Val{false}, p, en, spre, pre, pn, spro, pro) 
+function update_maximal_combination(::Val{false}, p, pre, pro) 
     res = pre .- pro
-    if (2 * pn > en ? check_overflow_multinomial(pn - spro, pro...) : check_overflow_multinomial(en - pn - spre + spro, res...))
-        p * multinomial(big(pn - spro), pro...) * multinomial(big(en - pn - spre + spro), res...)
+    if (sum(pro) > sum(res) ? check_overflow_multinomial(pro) : check_overflow_multinomial(res))
+        p * multinomial(big.(pro)...) * multinomial(big.(res)...)
     else
-        p * safe_multinomial(pn - spro, pro...) * safe_multinomial(en - pn - spre + spro, res...)
+        p * safe_multinomial(pro) * safe_multinomial(res)
     end
 end
 

@@ -418,10 +418,11 @@ function TandemIsotopologues_product(precise::Val, precursor_table, itp, id, pre
         end
     end
     net_charge = charge(product)
-    if isgainscheme(product_sch) 
+    gain = isgainscheme(product_sch) 
+    if gain
         element_precursor = chemicalelements(product_sch; loss = false)
     end
-    it = isotopologues_elements_ms2(precise, itp, element_precursor, element_product, abundance, abtype, proportion, threshold, iter, isgainscheme(product_sch), precursor_loss, chemical_loss, product_loss)
+    it = isotopologues_elements_ms2(precise, itp, element_precursor, element_product, abundance, abtype, proportion, threshold, iter, gain, precursor_loss, chemical_loss, product_loss)
     abs_charge = max(1, abs(net_charge))
     mass = net_charge == 0 ? it.Mass : [m / abs_charge + (net_charge < 0) * ME for m in it.Mass]
     chemical = [vcat(precursor_table.Chemical[id], isotopomerize(product_sch, element)) for (id, element) in zip(it.ID, it.Element)]
@@ -616,7 +617,10 @@ function update_isotopicabundance(precise::Val, total, elements)
         abundance = [get(elements_abundance(), first(elements[i]), one(total)) for i in id]
         any(==(one(total)), abundance) && continue
         ns = [last(elements[i]) for i in id]
-        total *= safe_multinomial(precise, ns) * prod(y ^ x for (x, y) in zip(ns, abundance))
+        total *= safe_multinomial(precise, ns) * prod(precise_exp(precise, y, x) for (x, y) in zip(ns, abundance))
     end
     return_abundance(precise, total)
 end
+
+precise_exp(::Val{true}, y, x) = big(y) ^ x
+precise_exp(::Val{false}, y, x) = y ^ x
