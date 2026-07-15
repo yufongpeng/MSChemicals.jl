@@ -53,6 +53,7 @@ function rec_vec_ab_end!(els, abv, mass, tbls, abundance_cutoff, maxab, id)
         ab = maxab * a
         ab < abundance_cutoff && break
         id[end] = i
+        # el = [tbl.Element[i] for (tbl, i) in zip(tbls, id)]
         el = [copy(tbl.Element[i]) for (tbl, i) in zip(tbls, id)]
         prev = empty(el[end])
         for i in Iterators.reverse(eachindex(el))

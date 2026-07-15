@@ -307,7 +307,7 @@ end
 
 """
     isotopologue_inverse_combination(precise::Val, elements::Dict)
-    isotopologue_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict, swap::Vector{String})
+    isotopologue_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict)
 
 Compute inverse of combination.
 """
@@ -318,28 +318,20 @@ function isotopologue_inverse_combination(precise::Val, elements::Dict)
     end)
 end
 
-function isotopologue_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict, swap::Vector{String})
+function isotopologue_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict)
     return_abundance(precise, mapfoldl(/, pairs(group(parent_element ∘ first, element_precursor)); init = 1.0) do (e, v) 
-        if e in swap 
-            safe_multinomial(precise, (n - get(element_product, i, 0) for (i, n) in v)...)
-        else
-            safe_multinomial(precise, (get(element_product, i, 0) for (i, n) in v)...)
-        end
+        safe_multinomial(precise, (get(element_product, i, 0) for (i, n) in v)...)
     end)
 end
 
 """
-    loss_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict, swap::Vector{String})
+    loss_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict)
 
 Compute inverse of combination for chemical loss.
 """
-function loss_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict, swap::Vector{String})
+function loss_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict)
     return_abundance(precise, mapfoldl(/, pairs(group(parent_element ∘ first, element_precursor)); init = 1.0) do (e, v) 
-        if e in swap 
-            safe_multinomial(precise, (get(element_product, i, 0) for (i, n) in v)...)
-        else
-            safe_multinomial(precise, (n - get(element_product, i, 0) for (i, n) in v)...)
-        end
+        safe_multinomial(precise, (n - get(element_product, i, 0) for (i, n) in v)...)
     end)
 end
 
@@ -381,15 +373,6 @@ function gf_parent_isotope(isotope = "[13C]")
     isotope_unit = elements_mass()[isotope] - elements_mass()[elements_parents()[isotope]]
     x -> [chemicalparent(m) => isotopomerstate(m; isotope_unit) for m in x]
 end
-
-"""
-    swap_elements(product::Dict, precursor::Dict, swap::Vector{String})
-
-Swap elements of `products` and elements of residuals of `precursor` and `product` for eleemnts in `swap`.
-"""
-swap_elements(product::Dict, precursor::Dict, swap::Vector{String}) = isempty(swap) ? get_isotope_vec(product) : [k => nswap(k, v, swap, product) for (k, v) in precursor if !iselement(k)]
-
-nswap(k, v, swap, product) = parent_element(k) in swap ? v - get(product, k, 0) : get(product, k, 0) 
 
 """
     get_isotope_vec(input_element::Vector{Pair{String, Int}})
