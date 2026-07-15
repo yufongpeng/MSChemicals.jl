@@ -58,5 +58,6 @@
     )
     @test isapprox(itit17.Abundance3[7] / itit17.Abundance3[6], 1.5)
     @test isapprox(itit18.Abundance3[6] / itit18.Abundance3[7], 4)
+    @test length(itit19) == length(itit20) == length(itit21) == length(itit22)
     @test isapprox(itl.Abundance1[begin], isotopicabundance(itl.Chemical[begin]); rtol = 1e-6)
 end

@@ -240,7 +240,7 @@ function abundance_threshold_msn(::Union{List, Total, Raw}, abundance, threshold
     total = abundance
     maxab = total
     for p in max_proportion_vec
-        maxab *= p 
+        maxab *= first(p) 
     end
     total, minimum(makecrit_value(crit(threshold), maxab))
 end
@@ -249,7 +249,7 @@ function abundance_threshold_msn(::Max, abundance, threshold, max_proportion_vec
     total = abundance
     maxab = total 
     for p in max_proportion_vec
-        total /= p 
+        total /= first(p) 
     end
     total, minimum(makecrit_value(crit(threshold), maxab))
 end
@@ -262,7 +262,7 @@ function abundance_threshold_msn(::Input, abundance, threshold, max_proportion_v
     end
     maxab = total
     for p in max_proportion_vec
-        maxab *= p 
+        maxab *= first(p) 
     end
     total, minimum(makecrit_value(crit(threshold), maxab))
 end
@@ -375,13 +375,13 @@ check_overflow_multinomial(x...) = stirling_approx_multinomial(x...) > log2typem
 check_overflow_multinomial(x::Vector{Int}) = stirling_approx_multinomial(x) > log2typemaxint
 check_overflow_factorial(n, k) = stirling_approx_factorial(n, k) > log2typemaxint
 
-safe_multinomial(::Val{true}, x::Vector{Int}) = multinomial(big.(x)...)
-safe_multinomial(::Val{false}, x::Vector{Int}) = check_overflow_multinomial(x) ? multinomial(big.(x)...) : safe_multinomial(x)
+safe_multinomial(::Val{true}, x::Vector{Int}) = multinomial((big(y) for y in x)...)
+safe_multinomial(::Val{false}, x::Vector{Int}) = check_overflow_multinomial(x) ? multinomial((big(y) for y in x)...) : safe_multinomial(x)
 function safe_multinomial(x::Vector{Int})
     try 
         multinomial(x...)
     catch
-        multinomial(big.(x)...)
+        multinomial((big(y) for y in x)...)
     end
 end
     
@@ -389,13 +389,13 @@ safe_multinomial(::T) where T = one(T)
 safe_multinomial(::Val{true}, ::T) where T = one(T)
 safe_multinomial(::Val{false}, ::T) where T = one(T)
 safe_multinomial(::Val{true}, x...) = multinomial(big.(x)...)
-safe_multinomial(::Val{false}, x...) = check_overflow_multinomial(x...) ? multinomial(big.(x)...) : safe_multinomial(x...)
+safe_multinomial(::Val{false}, x...) = check_overflow_multinomial(x...) ? multinomial((big(y) for y in x)...) : safe_multinomial(x...)
 
 function safe_multinomial(x...)
     try 
         multinomial(x...)
     catch
-        multinomial(big.(x)...)
+        multinomial((big(y) for y in x)...)
     end
 end
 

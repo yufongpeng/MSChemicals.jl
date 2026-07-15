@@ -37,8 +37,10 @@ itit15 = TandemIsotopologues(repeat([icps[3]], 1000); product = [lossserine], ab
 itit16 = TandemIsotopologues(Table(; Chemical = repeat([icps[3]], 1000), Product = repeat([[lossserine]], 1000), Abundance1 = repeat([1e5], 1000), Proportion = repeat([[0.5]], 1000), Transmission = repeat([0.3], 1000)); threshold = crit(1e1, 1e-2), threading = true)
 itit17 = TandemIsotopologues("[C2H5[12C]OO]-" => "-CO" => "-H2O"; abtype = :input)
 itit18 = TandemIsotopologues("[C2H5[12C]OO]-" => "-CO" => "OH"; abtype = :input)
-itit19 = TandemIsotopologues("[C200H500[12C]O200]-" => "-C100O100" => "-H100O50"; abtype = :input)
-itit20 = TandemIsotopologues("[C200H500[12C]O200]-" => "-C100O100" => "O50H50"; abtype = :input)
+itit19 = TandemIsotopologues("[C200H500[12C]O200]-" => "-C100O100" => "-O50H50"; abtype = :input)
+itit20 = TandemIsotopologues("[C200H500[12C]O200]-" => "-C100O100" => "[C100H450[12C]O50]-"; abtype = :input)
+itit21 = TandemIsotopologues("[C200H500[12C]O200]-" => "[C100H500[12C]O100]-" => "-O50H50"; abtype = :input)
+itit22 = TandemIsotopologues("[C200H500[12C]O200]-" => "[C100H500[12C]O100]-" => "[C100H450[12C]O50]-"; abtype = :input)
 
 d0 = MSC.dictionary_elements(chemicalelements(ipsi2[1]))
 d1 = MSC.dictionary_elements(chemicalelements(inputchemical(itit5.Chemical[14])))

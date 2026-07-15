@@ -8,8 +8,8 @@ function isotopologues_elements(precise::Val, element_dictionary::Dict, msfix, a
     abtype = abtyped(abtype)
     isempty(element_dictionary) && return (; Element = [element_dictionary], Mass = [mmi(element_dictionary)], Abundance = [abundance]) 
     first_proportion = isotopicabundance(precise, element_dictionary)
-    max_dictionary = maximal_elements(element_dictionary)
-    max_proportion = isotopicabundance(precise, max_dictionary)
+    max_proportion, max_dictionary = maximal_abundance_elements(precise, element_dictionary)
+    # max_proportion = isotopicabundance(precise, max_dictionary)
     if max_proportion < first_proportion || max_proportion == 0
         if precise == Val(false)
             first_proportion = return_abundance(precise, isotopicabundance(Val(true), element_dictionary))
@@ -46,8 +46,8 @@ function isotopologues_elements_iter(precise::Val, element_dictionary::Dict, msf
     abtype = abtyped(abtype)
     isempty(element_dictionary) && return (; Element = [element_dictionary], Mass = [mmi(element_dictionary)], Abundance = [abundance], Preab = [one(abundance)]) 
     first_proportion = isotopicabundance(precise, element_dictionary)
-    max_dictionary = maximal_elements(element_dictionary)
-    max_proportion = isotopicabundance(precise, max_dictionary)
+    max_proportion, max_dictionary = maximal_abundance_elements(precise, element_dictionary)
+    # max_proportion = isotopicabundance(precise, max_dictionary)
     if max_proportion < first_proportion || max_proportion == 0
         if precise == Val(false)
             first_proportion = return_abundance(precise, isotopicabundance(Val(true), element_dictionary))
@@ -93,14 +93,15 @@ function rec_addminusisotopes!(
         current,
         precise
     )
-    next_state = false
+    max_abundance = prev_abundance
+    next_abundance = prev_abundance
     (e, i) = element_isotope_pair[isotope_position]
     iter = isotope_position < lastindex(element_isotope_pair)
     iter_e = iter && (first(element_isotope_pair[isotope_position + 1]) == e)
     if iter && (prev_abundance >= threshold || all(current))
-        next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, prev_mass, prev_abundance, threshold, current, precise)
+        next_abundance = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, prev_mass, prev_abundance, threshold, current, precise)
+        max_abundance = max(max_abundance, next_abundance)
     end
-    current_state = next_state
     ne = get(element_dictionary, e, 0)
     ni = get(element_dictionary, i, 0)
     if first(current)
@@ -108,26 +109,17 @@ function rec_addminusisotopes!(
         mass = prev_mass
         cni = ni 
         cne = ne
-        iter_c = false
-        backward_next_state = next_state
+        backward_max_abundance = max(prev_abundance, next_abundance)
         while cni > 0
             new_abundance = update_abundance(precise, abundance, i, e, cni, cne, 1)
             if new_abundance >= threshold
                 next = (true, true)
             elseif iter_e && new_abundance >= abundance
-                newi = last(element_isotope_pair[isotope_position + 1])
-                iter_c = update_abundance(precise, 1, e, newi, cne + 1, get(element_dictionary, newi, 0), 1) > 1 
-                next = iter_c ? (false, true) : (false, false)
+                next = backward_max_abundance >= threshold ? (false, true) : (false, false)
             elseif new_abundance >= abundance
                 next = (false, false)
-            elseif iter_e && iter_c && backward_next_state
-                next = (false, true)
-            elseif iter_e && iter_c
-                break
             elseif iter_e
-                newi = last(element_isotope_pair[isotope_position + 1])
-                update_abundance(precise, 1, e, newi, cne + 1, get(element_dictionary, newi, 0), 1) > 1 || break
-                iter_c = true
+                backward_max_abundance >= threshold || break
                 next = (false, true)
             else
                 break
@@ -137,27 +129,30 @@ function rec_addminusisotopes!(
             mass += element_mass_delta(i, e)
             abundance = new_abundance
             if !any(next)
-                continue
+                backward_max_abundance = abundance
             elseif abundance >= threshold && iter
                 element_dictionary[i] = cni
                 element_dictionary[e] = cne
                 push!(element_vec, get_isotope_vec(element_dictionary))
                 push!(abundance_vec, abundance)
                 push!(mass_vec, mass)
-                current_state = true
-                backward_next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+                backward_next_abundance = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+                backward_max_abundance = max(abundance, backward_next_abundance)
             elseif abundance >= threshold
                 element_dictionary[i] = cni
                 push!(element_vec, get_isotope_vec(element_dictionary))
                 push!(abundance_vec, abundance)
                 push!(mass_vec, mass)
-                current_state = true
+                backward_max_abundance = abundance
             elseif iter 
                 element_dictionary[i] = cni
                 element_dictionary[e] = cne
-                backward_next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
-                current_state = current_state || backward_next_state
+                backward_next_abundance = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+                backward_max_abundance = max(abundance, backward_next_abundance)
+            else
+                backward_max_abundance = abundance
             end
+            max_abundance = max(backward_max_abundance, max_abundance)
         end
         element_dictionary[i] = ni
         element_dictionary[e] = ne
@@ -167,29 +162,20 @@ function rec_addminusisotopes!(
         mass = prev_mass
         cni = ni 
         cne = ne
-        iter_c = false
-        forward_next_state = next_state
+        forward_max_abundance = max(prev_abundance, next_abundance)
         while cne > 0
             new_abundance = update_abundance(precise, abundance, e, i, cne, cni, 1)
             if new_abundance >= threshold
                 next = (true, true)
             elseif iter_e && new_abundance >= abundance
-                newi = last(element_isotope_pair[isotope_position + 1])
-                if get(element_dictionary, newi, 0) > 0 
-                    iter_c = update_abundance(precise, 1, newi, e, get(element_dictionary, newi, 0), cne - 1, 1) > 1 
-                end
-                next = iter_c ? (false, true) : (false, false)
+                # newi = last(element_isotope_pair[isotope_position + 1])
+                next = forward_max_abundance >= threshold ? (false, true) : (false, false)
             elseif new_abundance >= abundance
                 next = (false, false)
-            elseif iter_e && iter_c && forward_next_state
-                next = (false, true)
-            elseif iter_e && iter_c
-                break
             elseif iter_e
-                newi = last(element_isotope_pair[isotope_position + 1])
-                get(element_dictionary, newi, 0) == 0 && break 
-                update_abundance(precise, 1, newi, e, get(element_dictionary, newi, 0), cne - 1, 1) > 1 || break
-                iter_c = true
+                # newi = last(element_isotope_pair[isotope_position + 1])
+                # get(element_dictionary, newi, 0) == 0 && break 
+                forward_max_abundance >= threshold || break
                 next = (true, false)
             else
                 break
@@ -199,33 +185,182 @@ function rec_addminusisotopes!(
             mass += element_mass_delta(e, i)
             abundance = new_abundance
             if !any(next)
-                continue
+                forward_max_abundance = abundance
             elseif abundance >= threshold && iter
                 element_dictionary[i] = cni
                 element_dictionary[e] = cne
                 push!(element_vec, get_isotope_vec(element_dictionary))
                 push!(abundance_vec, abundance)
                 push!(mass_vec, mass)
-                current_state = true
-                forward_next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+                forward_next_abundance = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+                forward_max_abundance = max(abundance, forward_next_abundance)
             elseif abundance >= threshold
                 element_dictionary[i] = cni
                 push!(element_vec, get_isotope_vec(element_dictionary))
                 push!(abundance_vec, abundance)
                 push!(mass_vec, mass)
-                current_state = true
+                forward_max_abundance = abundance
             elseif iter
                 element_dictionary[i] = cni
                 element_dictionary[e] = cne
-                forward_next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
-                current_state = current_state || forward_next_state
+                forward_next_abundance = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+                forward_max_abundance = max(abundance, forward_next_abundance)
+            else
+                forward_max_abundance = abundance
             end
+            max_abundance = max(forward_max_abundance, max_abundance)
         end
         element_dictionary[i] = ni
         element_dictionary[e] = ne
     end
-    current_state
+    max_abundance
 end
+# function rec_addminusisotopes!(
+#         element_vec::Vector, 
+#         mass_vec::Vector,
+#         abundance_vec::Vector, 
+#         element_dictionary::Dict, 
+#         element_isotope_pair::Vector, 
+#         isotope_position::Int, 
+#         prev_mass,
+#         prev_abundance, 
+#         threshold,
+#         current,
+#         precise
+#     )
+#     next_state = false
+#     (e, i) = element_isotope_pair[isotope_position]
+#     iter = isotope_position < lastindex(element_isotope_pair)
+#     iter_e = iter && (first(element_isotope_pair[isotope_position + 1]) == e)
+#     if iter && (prev_abundance >= threshold || all(current))
+#         next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, prev_mass, prev_abundance, threshold, current, precise)
+#     end
+#     current_state = next_state
+#     ne = get(element_dictionary, e, 0)
+#     ni = get(element_dictionary, i, 0)
+#     if first(current)
+#         abundance = prev_abundance 
+#         mass = prev_mass
+#         cni = ni 
+#         cne = ne
+#         iter_c = false
+#         backward_next_state = next_state
+#         while cni > 0
+#             new_abundance = update_abundance(precise, abundance, i, e, cni, cne, 1)
+#             if new_abundance >= threshold
+#                 next = (true, true)
+#             elseif iter_e && new_abundance >= abundance
+#                 newi = last(element_isotope_pair[isotope_position + 1])
+#                 iter_c = update_abundance(precise, 1, e, newi, cne + 1, get(element_dictionary, newi, 0), 1) > 1 
+#                 next = iter_c ? (false, true) : (false, false)
+#             elseif new_abundance >= abundance
+#                 next = (false, false)
+#             elseif iter_e && iter_c && backward_next_state
+#                 next = (false, true)
+#             elseif iter_e && iter_c
+#                 break
+#             elseif iter_e
+#                 newi = last(element_isotope_pair[isotope_position + 1])
+#                 update_abundance(precise, 1, e, newi, cne + 1, get(element_dictionary, newi, 0), 1) > 1 || break
+#                 iter_c = true
+#                 next = (false, true)
+#             else
+#                 break
+#             end
+#             cni -= 1
+#             cne += 1
+#             mass += element_mass_delta(i, e)
+#             abundance = new_abundance
+#             if !any(next)
+#                 continue
+#             elseif abundance >= threshold && iter
+#                 element_dictionary[i] = cni
+#                 element_dictionary[e] = cne
+#                 push!(element_vec, get_isotope_vec(element_dictionary))
+#                 push!(abundance_vec, abundance)
+#                 push!(mass_vec, mass)
+#                 current_state = true
+#                 backward_next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+#             elseif abundance >= threshold
+#                 element_dictionary[i] = cni
+#                 push!(element_vec, get_isotope_vec(element_dictionary))
+#                 push!(abundance_vec, abundance)
+#                 push!(mass_vec, mass)
+#                 current_state = true
+#             elseif iter 
+#                 element_dictionary[i] = cni
+#                 element_dictionary[e] = cne
+#                 backward_next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+#                 current_state = current_state || backward_next_state
+#             end
+#         end
+#         element_dictionary[i] = ni
+#         element_dictionary[e] = ne
+#     end
+#     if last(current)
+#         abundance = prev_abundance 
+#         mass = prev_mass
+#         cni = ni 
+#         cne = ne
+#         iter_c = false
+#         forward_next_state = next_state
+#         while cne > 0
+#             new_abundance = update_abundance(precise, abundance, e, i, cne, cni, 1)
+#             if new_abundance >= threshold
+#                 next = (true, true)
+#             elseif iter_e && new_abundance >= abundance
+#                 newi = last(element_isotope_pair[isotope_position + 1])
+#                 if get(element_dictionary, newi, 0) > 0 
+#                     iter_c = update_abundance(precise, 1, newi, e, get(element_dictionary, newi, 0), cne - 1, 1) > 1 
+#                 end
+#                 next = iter_c ? (false, true) : (false, false)
+#             elseif new_abundance >= abundance
+#                 next = (false, false)
+#             elseif iter_e && iter_c && forward_next_state
+#                 next = (false, true)
+#             elseif iter_e && iter_c
+#                 break
+#             elseif iter_e
+#                 newi = last(element_isotope_pair[isotope_position + 1])
+#                 get(element_dictionary, newi, 0) == 0 && break 
+#                 update_abundance(precise, 1, newi, e, get(element_dictionary, newi, 0), cne - 1, 1) > 1 || break
+#                 iter_c = true
+#                 next = (true, false)
+#             else
+#                 break
+#             end
+#             cni += 1
+#             cne -= 1
+#             mass += element_mass_delta(e, i)
+#             abundance = new_abundance
+#             if !any(next)
+#                 continue
+#             elseif abundance >= threshold && iter
+#                 element_dictionary[i] = cni
+#                 element_dictionary[e] = cne
+#                 push!(element_vec, get_isotope_vec(element_dictionary))
+#                 push!(abundance_vec, abundance)
+#                 push!(mass_vec, mass)
+#                 current_state = true
+#                 forward_next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+#             elseif abundance >= threshold
+#                 element_dictionary[i] = cni
+#                 push!(element_vec, get_isotope_vec(element_dictionary))
+#                 push!(abundance_vec, abundance)
+#                 push!(mass_vec, mass)
+#                 current_state = true
+#             elseif iter
+#                 element_dictionary[i] = cni
+#                 element_dictionary[e] = cne
+#                 forward_next_state = rec_addminusisotopes!(element_vec, mass_vec, abundance_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, threshold, next, precise)
+#                 current_state = current_state || forward_next_state
+#             end
+#         end
+#         element_dictionary[i] = ni
+#         element_dictionary[e] = ne
+#     end
+#     current_state
+# end
 
 function rec_addminusisotopes_iter!(
         element_vec::Vector, 
@@ -242,14 +377,15 @@ function rec_addminusisotopes_iter!(
         current,
         precise
     )
-    next_state = false
+    max_abundance = prev_abundance
+    next_abundance = prev_abundance
     (e, i) = element_isotope_pair[isotope_position]
     iter = isotope_position < lastindex(element_isotope_pair)
     iter_e = iter && first(element_isotope_pair[isotope_position + 1]) == e
     if iter && (prev_abundance >= threshold || all(current))
-        next_state = rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, prev_mass, prev_abundance, prev_preab, threshold, current, precise)
+        next_abundance = rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, prev_mass, prev_abundance, prev_preab, threshold, current, precise)
+        max_abundance = max(max_abundance, next_abundance)
     end
-    current_state = next_state
     ne = get(element_dictionary, e, 0)
     ni = get(element_dictionary, i, 0)
     if first(current)
@@ -259,25 +395,17 @@ function rec_addminusisotopes_iter!(
         cni = ni 
         cne = ne
         iter_c = false
-        backward_next_state = next_state
+        backward_max_abundance = max(prev_abundance, next_abundance)
         while cni > 0
             new_abundance = update_abundance(precise, abundance, i, e, cni, cne, 1)
             if new_abundance >= threshold
                 next = (true, true)
             elseif iter_e && new_abundance >= abundance
-                newi = last(element_isotope_pair[isotope_position + 1])
-                iter_c = update_abundance(precise, 1, e, newi, cne + 1, get(element_dictionary, newi, 0), 1) > 1 
-                next = iter_c ? (false, true) : (false, false)
+                next = backward_max_abundance >= threshold ? (false, true) : (false, false)
             elseif new_abundance >= abundance
                 next = (false, false)
-            elseif iter_e && iter_c && backward_next_state
-                next = (false, true)
-            elseif iter_e && iter_c
-                break
             elseif iter_e
-                newi = last(element_isotope_pair[isotope_position + 1])
-                update_abundance(precise, 1, e, newi, cne + 1, get(element_dictionary, newi, 0), 1) > 1 || break
-                iter_c = true
+                backward_max_abundance >= threshold || break
                 next = (false, true)
             else
                 break
@@ -287,28 +415,33 @@ function rec_addminusisotopes_iter!(
             cne += 1
             mass += element_mass_delta(i, e)
             abundance = new_abundance
-            if abundance >= threshold && iter
+            if !any(next)
+                backward_max_abundance = abundance
+            elseif abundance >= threshold && iter
                 element_dictionary[i] = cni
                 element_dictionary[e] = cne
                 push!(element_vec, get_isotope_vec(element_dictionary))
                 push!(preab_vec, preab)
                 push!(abundance_vec, abundance)
                 push!(mass_vec, mass)
-                current_state = true
-                rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, preab, threshold, next, precise)
+                backward_next_abundance = rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, preab, threshold, next, precise)
+                backward_max_abundance = max(abundance, backward_next_abundance)
             elseif abundance >= threshold
                 element_dictionary[i] = cni
                 push!(element_vec, get_isotope_vec(element_dictionary))
                 push!(preab_vec, preab)
                 push!(abundance_vec, abundance)
                 push!(mass_vec, mass)
-                current_state = true
+                backward_max_abundance = abundance
             elseif iter 
                 element_dictionary[i] = cni
                 element_dictionary[e] = cne
-                backward_next_state = rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, preab, threshold, next, precise)
-                current_state = current_state || backward_next_state
+                backward_next_abundance = rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, preab, threshold, next, precise)
+                backward_max_abundance = max(abundance, backward_next_abundance)
+            else
+                backward_max_abundance = abundance
             end
+            max_abundance = max(max_abundance, backward_max_abundance)
         end
         element_dictionary[i] = ni
         element_dictionary[e] = ne
@@ -320,28 +453,20 @@ function rec_addminusisotopes_iter!(
         cni = ni 
         cne = ne
         iter_c = false
-        forward_next_state = next_state
+        forward_max_abundance = max(prev_abundance, next_abundance)
         while cne > 0
             new_abundance = update_abundance(precise, abundance, e, i, cne, cni, 1)
             if new_abundance >= threshold
                 next = (true, true)
             elseif iter_e && new_abundance >= abundance
                 newi = last(element_isotope_pair[isotope_position + 1])
-                if get(element_dictionary, newi, 0) > 0 
-                    iter_c = update_abundance(precise, 1, newi, e, get(element_dictionary, newi, 0), cne - 1, 1) > 1 
-                end
-                next = iter_c ? (false, true) : (false, false)
+                next = forward_max_abundance >= threshold ? (false, true) : (false, false)
             elseif new_abundance >= abundance
                 next = (false, false)
-            elseif iter_e && iter_c && forward_next_state
-                next = (false, true)
-            elseif iter_e && iter_c
-                break
             elseif iter_e
                 newi = last(element_isotope_pair[isotope_position + 1])
-                get(element_dictionary, newi, 0) == 0 && break 
-                update_abundance(precise, 1, newi, e, get(element_dictionary, newi, 0), cne - 1, 1) > 1 || break
-                iter_c = true
+                # get(element_dictionary, newi, 0) == 0 && break 
+                forward_max_abundance >= threshold || break
                 next = (true, false)
             else
                 break
@@ -351,31 +476,36 @@ function rec_addminusisotopes_iter!(
             cne -= 1
             mass += element_mass_delta(e, i)
             abundance = new_abundance
-            if abundance >= threshold && iter
+            if !any(next)
+                forward_max_abundance = abundance
+            elseif abundance >= threshold && iter
                 element_dictionary[i] = cni
                 element_dictionary[e] = cne
                 push!(element_vec, get_isotope_vec(element_dictionary))
                 push!(preab_vec, preab)
                 push!(abundance_vec, abundance)
                 push!(mass_vec, mass)
-                current_state = true
-                rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, preab, threshold, next, precise)
+                forward_next_abundance = rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, preab, threshold, next, precise)
+                forward_max_abundance = max(abundance, forward_next_abundance)
             elseif abundance >= threshold
                 element_dictionary[i] = cni
                 push!(element_vec, get_isotope_vec(element_dictionary))
                 push!(preab_vec, preab)
                 push!(abundance_vec, abundance)
                 push!(mass_vec, mass)
-                current_state = true
+                forward_max_abundance = abundance
             elseif iter
                 element_dictionary[i] = cni
                 element_dictionary[e] = cne
-                forward_next_state = rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, preab, threshold, next, precise)
-                current_state = current_state || forward_next_state
+                forward_next_abundance = rec_addminusisotopes_iter!(element_vec, mass_vec, abundance_vec, preab_vec, element_dictionary, element_isotope_pair, isotope_position + 1, mass, abundance, preab, threshold, next, precise)
+                forward_max_abundance = max(abundance, forward_next_abundance)
+            else
+                backward_max_abundance = abundance
             end
+            max_abundance = max(max_abundance, forward_max_abundance)
         end
         element_dictionary[i] = ni
         element_dictionary[e] = ne
     end
-    current_state
+    max_abundance
 end

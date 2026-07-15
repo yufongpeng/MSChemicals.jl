@@ -307,34 +307,25 @@ function TandemIsotopologues(input_chemical::AbstractChemical;
     elseif length(abundance) < length(precursor_info)
         abundance = vcat(reverse([first(abundance) / transmission ^ i for i in 1:(length(precursor_info) - length(abundance))]), abundance)
     end
-
-    if end_stage
-        product_loss = false
-    else
-        precursor_sch, precursor, element_precursor = last(precursor_info)
-        product = parse_chemical.(Ref(chemicalparser), product)
-        all(x -> x isa AbstractScheme || msstage(x) < 2, product) || throw(ArgumentError("Products should not be MS/MS pairs."))
-        proportion = if isnothing(proportion) 
-            [1/length(product) for x in eachindex(product)]
-        else
-            proportion = vectorize(proportion)
-        end
-        length(proportion) == length(product) || throw(ArgumentError("The length of `proportion` does not mactch the length of `product`"))
-        product_info = if isnothing(product_info) || isempty(product_info)
-            map(inputsch -> detectedchemicaldata(precursor, inputsch), product) 
-        else
-            vectorize(product_info)
-        end
-        length(product_info) == length(product) || throw(ArgumentError("The length of `product_info` does not mactch the length of `product`"))
-        product_loss = count(islossscheme ∘ first, product_info) > length(precursor_info) / 2
-    end
-
     if isnothing(precursor_table)
-        precursor_table = TandemIsotopologues_precursor(Val(precise), precursor_info, id, abundance; chemicalparser, abtype, threshold, iter = !end_stage, product_loss)
+        precursor_table = TandemIsotopologues_precursor(Val(precise), precursor_info, id, abundance; chemicalparser, abtype, threshold, iter = !end_stage)
     end
     end_stage && return Table(precursor_table; Chemical = ChemicalTransition.(precursor_table.Chemical))
-
-        
+    precursor_sch, precursor, element_precursor = last(precursor_info)
+    product = parse_chemical.(Ref(chemicalparser), product)
+    all(x -> x isa AbstractScheme || msstage(x) < 2, product) || throw(ArgumentError("Products should not be MS/MS pairs."))
+    proportion = if isnothing(proportion) 
+        [1/length(product) for x in eachindex(product)]
+    else
+        proportion = vectorize(proportion)
+    end
+    length(proportion) == length(product) || throw(ArgumentError("The length of `proportion` does not mactch the length of `product`"))
+    product_info = if isnothing(product_info) || isempty(product_info)
+        map(inputsch -> detectedchemicaldata(precursor, inputsch), product) 
+    else
+        vectorize(product_info)
+    end
+    length(product_info) == length(product) || throw(ArgumentError("The length of `product_info` does not mactch the length of `product`"))
     colab = Symbol(string("Abundance", length(id)))
     element_precursor_dictionary = get_element_dictinonary(element_precursor)
     isotopes_precursor = map(detectedisotopes, precursor_table.Chemical)
@@ -353,7 +344,7 @@ function TandemIsotopologues(input_chemical::AbstractChemical;
     end
     itp = hasproperty(precursor_table, :Preab) ? (; Element = el, Isotope = isotopes_precursor, Abundance = getproperty(precursor_table, colab), Preab = precursor_table.Preab) : 
         (; Element = el, Isotope = isotopes_precursor, Abundance = getproperty(precursor_table, colab))
-    tbls = [TandemIsotopologues_product(Val(precise), precursor_table, itp, (id..., i), last(precursor_info), prod_info, prop, last(abundance), Total(), threshold, false, product_loss, islossscheme(first(prod_info)), false; check_product = true) for (i, inputsch, prop, prod_info) in zip(eachindex(product), product, proportion, product_info)]
+    tbls = [TandemIsotopologues_product(Val(precise), precursor_table, itp, (id..., i), last(precursor_info), prod_info, prop, last(abundance), Total(), threshold, false, islossscheme(first(prod_info)); check_product = true) for (i, prop, prod_info) in zip(eachindex(product), proportion, product_info)]
     colab = lastcolnum(propertynames(first(tbls)), "Abundance")
     ab = ChainedVector(getproperty.(tbls, colab))
     abundance_cutoff = minimum(makecrit_value(crit(threshold), maximum(ab)))
@@ -370,16 +361,13 @@ function TandemIsotopologues_precursor(precise::Val, precursor_info, id, abundan
             chemicalparser = ChemicalTransitionParser(ChemicalExpressionParser(; charge = 1, loss = 0, gain = 0)),
             abtype = Max(), 
             threshold = rcrit(1e-4),
-            iter = true,
-            product_loss = false
+            iter = true
         )
     precursor_table = Isotopologues_iter(precise, first(precursor_info)[2]; chemicalparser, id = id[begin:begin], abundance = abundance[begin], abtype, threshold)
     length(precursor_info) < 2 && return precursor_table
     ip = 1
     iters = trues(length(precursor_info))
     loss = map(islossscheme ∘ first, precursor_info)
-    loss[begin] = loss[begin + 1]
-    push!(loss, product_loss)
     iters[end - 1] = !isgainscheme(first(last(precursor_info)))
     iters[end] = iter
     while ip < lastindex(precursor_info)
@@ -403,12 +391,12 @@ function TandemIsotopologues_precursor(precise::Val, precursor_info, id, abundan
         itp = iters[ip - 1] ? (; Element = el, Isotope = isotopes_precursor, Abundance = getproperty(precursor_table, colab), Preab = precursor_table.Preab) : 
             (; Element = el, Isotope = isotopes_precursor, Abundance = getproperty(precursor_table, colab))
             # itp = (; Element = el, Isotope = isotopes_precursor, Abundance = getproperty(precursor_table, colab))
-        precursor_table = TandemIsotopologues_product(precise, precursor_table, itp, id[begin:ip], precursor_info[ip - 1], precursor_info[ip], abundance[ip] / abundance[ip - 1], abundance[ip], Total(), threshold, iters[ip], loss[ip - 1], loss[ip], loss[ip + 1]) 
+        precursor_table = TandemIsotopologues_product(precise, precursor_table, itp, id[begin:ip], precursor_info[ip - 1], precursor_info[ip], abundance[ip] / abundance[ip - 1], abundance[ip], Total(), threshold, iters[ip], loss[ip]) 
     end
     precursor_table
 end
 
-function TandemIsotopologues_product(precise::Val, precursor_table, itp, id, precursor_info, product_info, proportion, abundance, abtype, threshold, iter, precursor_loss, chemical_loss, product_loss; check_product = false)
+function TandemIsotopologues_product(precise::Val, precursor_table, itp, id, precursor_info, product_info, proportion, abundance, abtype, threshold, iter, chemical_loss; check_product = false)
     precursor_sch, precursor, element_precursor = precursor_info
     product_sch, product, element_product = product_info
     nms = length(id)
@@ -422,7 +410,7 @@ function TandemIsotopologues_product(precise::Val, precursor_table, itp, id, pre
     if gain
         element_precursor = chemicalelements(product_sch; loss = false)
     end
-    it = isotopologues_elements_ms2(precise, itp, element_precursor, element_product, abundance, abtype, proportion, threshold, iter, gain, precursor_loss, chemical_loss, product_loss)
+    it = isotopologues_elements_ms2(precise, itp, element_precursor, element_product, abundance, abtype, proportion, threshold, iter, gain, chemical_loss)
     abs_charge = max(1, abs(net_charge))
     mass = net_charge == 0 ? it.Mass : [m / abs_charge + (net_charge < 0) * ME for m in it.Mass]
     chemical = [vcat(precursor_table.Chemical[id], isotopomerize(product_sch, element)) for (id, element) in zip(it.ID, it.Element)]
