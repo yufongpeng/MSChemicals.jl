@@ -9,7 +9,7 @@ Detected chemical and dictionary of elements.
 function detectedchemicaldata(precursor, product)
     sch = completescheme(precursor, product)
     det = detectedchemical(precursor, sch)
-    sch, det, unique_elements(Dict, chemicalelements(det))
+    sch, det, unique_elements(Vector{Pair}, chemicalelements(det))
 end
 
 """
@@ -28,10 +28,10 @@ function serieschemicaldata(input_chemical)
     end
     v = map(eachindex(sch)) do i 
         elements_precursor = chemicalelements(det[i])
-        sch[i], det[i], unique_elements(Dict, elements_precursor)
+        sch[i], det[i], unique_elements(Vector{Pair}, elements_precursor)
     end
     for (s, d, e) in v 
-        all(>=(0), values(e)) || throw(ArgumentError("Product can only contain elements restricted by precursor."))
+        all(x -> last(x) >=0, e) || throw(ArgumentError("Product can only contain elements restricted by precursor."))
     end
     v
 end
@@ -41,7 +41,7 @@ end
 
 Serial isotomoperize `transitions` with detected isotpic replacements `els`.
 """
-function seriesisotopomerize(transitions::Vector{<: AbstractChemicalsSchema}, els::Vector{<: Vector{Vector{Pair{String, Int}}}})
+function seriesisotopomerize(transitions::Vector{<: AbstractChemicalsSchema}, els::Vector{<: Vector{ElementsVector}})
     @inbounds map(els) do el
         ChemicalTransition(map(enumerate(transitions)) do (i, trans)
             (islossscheme(trans) || isgainscheme(trans)) && i == firstindex(transitions) && throw(ArgumentError("$(typeof(trans)) cannot be input chemical."))
@@ -51,40 +51,14 @@ function seriesisotopomerize(transitions::Vector{<: AbstractChemicalsSchema}, el
     end
 end
 
-# """
-#     maximal_abundance(precise::Val, elements::Dict, prev = 1.0) -> AbstractFloat
-
-# Dictionary of elements of maximal abundance.
-# """
-# function conditional_maximal_abundance(precise::Val, elements, condition, isotopes, addition, prev)
-#     e = parent_element(condition)
-#     if addition
-#         new_p = prev * precise_ratio(precise, elements_abundance()[condition], elements[condition] + 1)
-#         prev_p = new_p * precise_ratio(precise, elements[e], elements_abundance()[e])
-#         for x in isotopes 
-#             max_p = max(prev_p, new_p * precise_ratio(precise, elements[x], elements_abundance()[x]))
-#         end
-#     else
-#         new_p = prev * precise_ratio(precise, elements[condition], elements_abundance()[condition])
-#         prev_p = new_p * precise_ratio(precise, elements_abundance()[e], elements[e] + 1)
-#         for x in isotopes 
-#             max_p = max(prev_p, new_p * precise_ratio(precise, elements_abundance()[x], elements[x] + 1))
-#         end
-#     end
-#     max_p
-# end
-
-# precise_ratio(precise::Val{true}, x, y) = big(x) / y
-# precise_ratio(precise::Val{false}, x, y) = x / y
-
 """
-    maximal_elements(elements::Dict) -> Dict
+    maximal_composition(elements) -> Vector{Int}
 
-Dictionary of elements of maximal abundance.
+Numbers of isotopes of maximal abundance.
 """
-function maximal_elements(elements)
-    max_dictionary = copy(elements)
-    for (e, m) in elements
+function maximal_composition(elements)
+    max_vps = Vector(undef, length(elements))
+    for (iem, (e, m)) in enumerate(elements)
         m += 1
         xs = elements_isotopes()[e]
         ns = [floor(Int, m * elements_abundance()[x]) for x in xs]
@@ -107,20 +81,15 @@ function maximal_elements(elements)
                 d -= 1
             end
         end
-        max_dictionary[e] = first(ns)
-        i = 1
-        while i < lastindex(ns)
-            i += 1
-            max_dictionary[xs[i]] = ns[i]
-        end
+        max_vps[iem] = ns
     end
-    max_dictionary
+    vcat(max_vps...)
 end
 
 """
-    maximal_abundance(elements::Dict) 
+    maximal_abundance(precise::Val, elements, prev = 1.0) -> AbstractFloat
 
-Dictionary of elements of maximal abundance.
+Maximal abundance.
 """
 function maximal_abundance(precise::Val, elements, prev = 1.0)
     for (e, m) in elements
@@ -152,13 +121,13 @@ function maximal_abundance(precise::Val, elements, prev = 1.0)
 end
 
 """
-    maximal_abundance_elements(elements::Dict) 
+    maximal_abundance_composition(precise::Val, elements, prev = 1.0) -> Tuple{<:AbstractFloat, Vector{Int}}
 
-Dictionary of elements of maximal abundance.
+Numbers of isotopes of maximal abundance.
 """
-function maximal_abundance_elements(precise::Val, elements, prev = 1.0)
-    max_dictionary = copy(elements)
-    for (e, m) in elements
+function maximal_abundance_composition(precise::Val, elements, prev = 1.0)
+    max_vps = Vector(undef, length(elements))
+    for (iem, (e, m)) in enumerate(elements)
         m += 1
         xs = elements_isotopes()[e]
         ns = [floor(Int, m * elements_abundance()[x]) for x in xs]
@@ -181,30 +150,76 @@ function maximal_abundance_elements(precise::Val, elements, prev = 1.0)
                 d -= 1
             end
         end
-        max_dictionary[e] = first(ns)
-        i = 1
-        while i < lastindex(ns)
-            i += 1
-            max_dictionary[xs[i]] = ns[i]
-        end
+        max_vps[iem] = ns
         prev *= safe_multinomial(precise, ns) * prod(precise_exp(precise, elements_abundance()[y], x) for (x, y) in zip(ns, xs))
     end
-    return_abundance(precise, prev), max_dictionary
+    return_abundance(precise, prev), vcat(max_vps...)
+end
+
+function maximal_abundance_elements_composition(precise::Val, elements)
+    max_vps = Vector(undef, length(elements))
+    max_abs = Vector{typeof(return_abundance(precise, big(0.0)))}(undef, length(elements))
+    for (iem, (e, m)) in enumerate(elements)
+        m += 1
+        xs = elements_isotopes()[e]
+        ns = [floor(Int, m * elements_abundance()[x]) for x in xs]
+        if sum(ns) >= m
+            d = sum(ns) - m + 1
+            i = lastindex(ns)
+            while d > 0
+                if ns[i] > 0
+                    ns[i] -= 1
+                    d -= 1
+                else
+                    i -= 1
+                end
+            end
+        elseif sum(ns) < m - 1
+            d = m - sum(ns) - 1
+            while d > 0
+                _, i = findmax([elements_abundance()[x] / (ns[i] + 1) for (i, x) in enumerate(xs)])
+                ns[i] += 1 
+                d -= 1
+            end
+        end
+        max_vps[iem] = ns
+        max_abs[iem] = return_abundance(precise, safe_multinomial(precise, ns) * prod(precise_exp(precise, elements_abundance()[y], x) for (x, y) in zip(ns, xs)))
+    end
+    max_abs, max_vps
 end
 
 return_abundance(::Val{true}, x) = x 
 return_abundance(::Val{false}, x) = convert(float(Int), x) 
 
+function maximal_abundance_elements_composition_check(precise::Val, element_vp, abtype)
+    first_proportion = isotopicabundance(precise, element_vp)
+    max_proportion, max_vp = maximal_abundance_elements_composition(precise, element_vp)
+    # max_proportion = isotopicabundance(precise, max_dictionary)
+    mp = prod(max_proportion)
+    if mp < first_proportion && !isapprox(mp, first_proportion) 
+        if precise == Val(false)
+            first_proportion = return_abundance(precise, isotopicabundance(Val(true), element_vp))
+            max_proportion, max_vp = maximal_abundance_elements_composition(Val(true), element_vp)
+            max_proportion = [return_abundance(precise, x) for x in max_proportion]
+        elseif mp < first_proportion 
+            throw(ArgumentError("The input chemical is too large to estimete isotopic abundance correctly; try set `precise` true."))
+        end
+    end
+    if abtype == Input() && first_proportion / prod(max_proportion) < min_propotion() 
+        throw(ArgumentError("Isotopic abundance of input chemical is too small; try use `abtype` other than `Input()`"))
+    end
+    max_proportion, max_vp
+end
 """
-    distribute_element_update!(update_fn, precise, prev, e, isotopes, element_precursor, element_product, max_dict = nothing)
+    distribute_element(update_fn, precise, prev, e, element_precursor, np) -> AbstractFloat
 
-Distribute isotopes from `element_precursor` into `element_product` for parent element `e` and isotopes `isotopes`; then update max_dict and update `prev` using `update_fn`.
+For parent element `e`, distribute isotopes from `element_precursor` into product containing `np` of `e`; then update `prev` using `update_fn`.
 """
-function distribute_element_update!(update_fn, precise, prev, e, isotopes, element_precursor, element_product, max_dict = nothing)
-    pre = [get(element_precursor, x, 0) for x in isotopes]
+function distribute_element(update_fn, precise, prev, e, element_precursor, pn)
+    pre = [get(element_precursor, x, 0) for x in elements_isotopes()[e]]
+    # pre[1] = get(element_precursor, e, 0)
     en = sum(pre)
-    en == 0 && return prev
-    pn = get(element_product, e, 0)
+    en == 0 && return (prev, zeros(Int, length(pre)))
     # divrem_pro = [divrem(x * pn, en) for x in pre]
     pro = [div(x * pn, en) for x in pre]
     # pro = first.(divrem_pro)
@@ -219,27 +234,20 @@ function distribute_element_update!(update_fn, precise, prev, e, isotopes, eleme
             i += 1 
         end
     end
-    update_max_dict!(max_dict, e, isotopes, pro)
-    update_fn(precise, prev, pre, pro)
-end
-
-update_max_dict!(max_dict::Nothing, e, isotopes, pro) = nothing
-function update_max_dict!(max_dict::Dict, e, isotopes, pro) 
-    for (x, n) in zip(isotopes, pro) 
-        # x == e && continue
-        max_dict[x] = get(max_dict, x, 0) + n
-        max_dict[e] = get(max_dict, e, 0) - n
-    end
+    update_fn(precise, prev, pre, pro), pro
 end
 
 """
-    maximal_proportion(precise::Val, element_precursor::Dict, element_product::Dict, prev = 1.0) -> AbstractFloat
+    maximal_proportion(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0) -> AbstractFloat
 
 Estimate maximal product isotopologue of `element_product`, and compute the proportion relative to all possible isotopologues fragmented from `element_precursor`. 
 """
-function maximal_proportion(precise::Val, element_precursor, element_product, prev = 1.0)
-    for (e, v) in pairs(group(parent_element, keys(element_precursor))) 
-        prev = distribute_element_update!(update_maximal_proportion, precise, prev, e, v, element_precursor, element_product)
+function maximal_proportion(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+    for (e, n) in element_product
+        prev, _ = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, n)
+    end
+    for e in leftover
+        prev, _ = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, 0)
     end
     return_abundance(precise, prev)
 end
@@ -256,41 +264,69 @@ function update_maximal_proportion(::Val{false}, p, pre, pro)
 end
 
 """
-    maximal_proportion_elements(precise::Val, element_precursor::Dict, element_product::Dict, prev = 1.0)
+    maximal_proportion_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
 
-Estimate maximal product isotopologue of `element_product`, and compute `Dictionary` of elements and proportion relative to all possible isotopologues fragmented from `element_precursor`. 
+Estimate maximal product isotopologue of `element_product`, and compute the vector of numbers of isotopes and proportion relative to all possible isotopologues fragmented from `element_precursor`. 
 """
-function maximal_proportion_elements(precise::Val, element_precursor::Dict, element_product::Dict, prev = 1.0)
-    first_element_product_dictionary = copy(element_product)
-    for (e, v) in pairs(group(parent_element, keys(element_precursor))) 
-        prev = distribute_element_update!(update_maximal_proportion, precise, prev, e, v, element_precursor, element_product, first_element_product_dictionary)
+function maximal_proportion_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+    max_vps = Vector{Any}(undef, length(element_product))
+    for (i, (e, n)) in enumerate(element_product)
+        prev, product = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, n)
+        max_vps[i] = product
     end
-    return_abundance(precise, prev), first_element_product_dictionary
+    for e in leftover
+        prev, _ = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, 0)
+    end
+    return_abundance(precise, prev), vcat(max_vps...)
 end
 
 """
-    maximal_combination(precise::Val, element_precursor::Dict, element_product::Dict, prev = 1.0) -> AbstractFloat
+    maximal_combination(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0) -> AbstractFloat
 
 Estimate maximal product isotopologue of `element_product`, and compute the number of combinations. 
 """
-function maximal_combination(precise::Val, element_precursor::Dict, element_product::Dict, prev = 1.0)
-    for (e, v) in pairs(group(parent_element, keys(element_precursor))) 
-        prev = distribute_element_update!(update_maximal_combination, precise, prev, e, v, element_precursor, element_product)
+function maximal_combination(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+    for (e, n) in element_product
+        prev, _ = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, n)
+    end
+    for e in leftover
+        prev, _ = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, 0)
     end
     return_abundance(precise, prev)
 end
 
 """
-    maximal_combination_elements(precise::Val, element_precursor::Dict, element_product::Dict, prev = 1.0)
+    maximal_combination_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
 
-Estimate maximal product isotopologue of `element_product`, and compute `Dictionary` of elements and the number of combinations. 
+Estimate maximal product isotopologue of `element_product`, and compute the vector of numbers of isotopes and the number of combinations. 
 """
-function maximal_combination_elements(precise::Val, element_precursor, element_product, prev = 1.0)
-    first_element_product_dictionary = copy(element_product)
-    for (e, v) in pairs(group(parent_element, keys(element_precursor))) 
-        prev = distribute_element_update!(update_maximal_combination, precise, prev, e, v, element_precursor, element_product, first_element_product_dictionary)
+function maximal_combination_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+    max_vps = Vector{Any}(undef, length(element_product))
+    for (i, (e, n)) in enumerate(element_product)
+        prev, product = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, n)
+        max_vps[i] = product
     end
-    return_abundance(precise, prev), first_element_product_dictionary
+    for e in leftover
+        prev, _ = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, 0)
+    end
+    return_abundance(precise, prev), vcat(max_vps...)
+end
+
+function maximal_combination_elements_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+    m = length(element_product)
+    max_vps = Vector{Any}(undef, m + length(leftover))
+    max_cbs = Vector{typeof(return_abundance(precise, big(0.0)))}(undef, m + length(leftover))
+    for (i, (e, n)) in enumerate(element_product)
+        cb, product = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, n)
+        max_vps[i] = product
+        max_cbs[i] = return_abundance(precise, cb)
+    end
+    for (i, e) in enumerate(leftover)
+        cb, product = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, 0)
+        max_vps[i + m] = product
+        max_cbs[i + m] = return_abundance(precise, cb)
+    end
+    max_cbs, max_vps
 end
 
 update_maximal_combination(::Val{true}, p, pre, pro) = 
@@ -306,39 +342,21 @@ function update_maximal_combination(::Val{false}, p, pre, pro)
 end
 
 """
-    isotopologue_inverse_combination(precise::Val, elements::Dict)
-    isotopologue_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict)
+    isotopologue_inverse_combination(precise::Val, enumbers, isotopes)
 
 Compute inverse of combination.
 """
-function isotopologue_inverse_combination(precise::Val, elements::Dict)
+function isotopologue_inverse_combination(precise::Val, numbers, isotopes)
     # ignore_isotopes && return 1.0
-    return_abundance(precise, mapfoldl(/, group(parent_element ∘ first, elements); init = 1.0) do v 
-        safe_multinomial(precise, last.(v))
-    end)
-end
-
-function isotopologue_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict)
-    return_abundance(precise, mapfoldl(/, pairs(group(parent_element ∘ first, element_precursor)); init = 1.0) do (e, v) 
-        safe_multinomial(precise, (get(element_product, i, 0) for (i, n) in v)...)
-    end)
-end
-
-"""
-    loss_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict)
-
-Compute inverse of combination for chemical loss.
-"""
-function loss_inverse_combination(precise::Val, element_precursor::Dict, element_product::Dict)
-    return_abundance(precise, mapfoldl(/, pairs(group(parent_element ∘ first, element_precursor)); init = 1.0) do (e, v) 
-        safe_multinomial(precise, (n - get(element_product, i, 0) for (i, n) in v)...)
+    return_abundance(precise, mapfoldl(/, groupfind(parent_element, isotopes); init = 1.0) do v 
+        safe_multinomial(precise, numbers[v])
     end)
 end
 
 """
     unique_group_mz_ab(mztable, transitions, colmz, colab, gf = nothing)
 
-Group `transitions` by `gf`, create maps from group to id, and extract m/z values and abundance from `matable`.
+Group `transitions` by `gf`, create maps from group to id, and extract m/z values and abundance from `mztable`.
 """
 function unique_group_mz_ab(mztable, transitions, colmz, colab, gf = nothing)
     if isnothing(gf)
@@ -348,11 +366,11 @@ function unique_group_mz_ab(mztable, transitions, colmz, colab, gf = nothing)
     end
     gids = [groupfind(x -> x[begin:i], gfv) for i in eachindex(first(gfv))]
     ma = map(enumerate(gids)) do (i, gid)
-        map(gid) do v 
-            c = [y[begin:i] for y in transitions[v]]
-            u = v[[findfirst(x -> x == t, c) for t in unique(c)]]
-            ab = getproperty(mztable, colab[i])[u]
-            mean(getproperty(mztable, colmz[i])[u], weights(ab)), sum(ab)
+        map(gid) do ids
+            chemicals = [y[begin:i] for y in @view transitions[ids]]
+            uids = ids[[findfirst(x -> x == t, chemicals) for t in unique(chemicals)]]
+            ab = getproperty(mztable, colab[i])[uids]
+            mean(getproperty(mztable, colmz[i])[uids], weights(ab)), sum(ab)
         end
     end
     gid = last(gids)
@@ -375,20 +393,27 @@ function gf_parent_isotope(isotope = "[13C]")
 end
 
 """
-    get_isotope_vec(input_element::Vector{Pair{String, Int}})
-    get_isotope_vec(input_element::Dict{String, Int})
+    get_isotopes(elements)
 
-Create isotopic replacement vectors.
+Get all isotopes of each element in `elements`.
 """
-get_isotope_vec(input_element::Vector{Pair{String, Int}}) = filter(x -> !iselement(first(x)), input_element)
-get_isotope_vec(input_element::Dict{String, Int}) = [k => v for (k, v) in input_element if !iselement(k)]
+get_isotopes(x) = mapreduce(vcat, x) do e 
+    elements_isotopes()[first(e)]
+end
 
 """
-    get_element_dictinonary(input_element)
+    get_nisotopes(elements)
+
+Get number isotopes of each element in `elements`.
+"""
+get_nisotopes(x) = [length(elements_isotopes()[first(e)]) for e in x]
+
+"""
+    get_element_dictionary(input_element)
 
 Element dictionary without isotopes.
 """
-function get_element_dictinonary(input_element)
+function get_element_dictionary(input_element)
     element_dictionary = Dict{String, Int}()
     for (e, n) in input_element
         if iselement(e)
@@ -397,12 +422,21 @@ function get_element_dictinonary(input_element)
     end
     element_dictionary
 end
-get_element_dictinonary(input_element::Dict) = filter(iselement ∘ first, input_element)
+get_element_dictionary(input_element::Dict) = filter(iselement ∘ first, input_element)
 
 """
-    get_fixmass(input_element)
+    get_element(input_element) -> Vector{Pair{String, Int}}
 
-Mass of isotopes
+Element vector without isotopes.
+"""
+function get_element(input_element) 
+    [e => n for (e, n) in input_element if iselement(e)]
+end
+
+"""
+    get_fixmass(input_element) -> AbstractFloat
+
+Mass of isotopes.
 """
 function get_fixmass(input_element)
     msfix = elements_mass()[""]
@@ -415,11 +449,11 @@ function get_fixmass(input_element)
 end
 
 """
-    get_element_dictinonary_fixmass(input_element)
+    get_element_dictionary_fixmass(input_element) -> Tuple{Dict,<:AbstractFloat}
 
 Element dictionary without isotopes, and mass of isotopes
 """
-function get_element_dictinonary_fixmass(input_element)
+function get_element_dictionary_fixmass(input_element)
     element_dictionary = Dict{String, Int}()
     msfix = elements_mass()[""]
     for (e, n) in input_element
@@ -433,33 +467,48 @@ function get_element_dictinonary_fixmass(input_element)
 end
 
 """
-    element_isotope_pairs(element_dictionary; sort = true)
+    get_element_fixmass(input_element) -> Tuple{Vector{Pair{String, Int}},<:AbstractFloat}
 
-Elements and isotopes pairs.
+Element vector without isotopes, and mass of isotopes
 """
-function element_isotope_pairs(element_dictionary; sort = true)
-    element_isotope_pair = mapreduce(vcat, collect(keys(element_dictionary))) do e
-        v = get(elements_isotopes(), e, nothing)
-        isnothing(v) && return Pair{String, String}[]
-        length(v) < 1 && return Pair{String, String}[]
-        map(v[begin + 1:end]) do x
-            (e, x)
+function get_element_fixmass(input_element) 
+    msfix = elements_mass()[""]
+    for (e, n) in input_element
+        if !iselement(e)
+            msfix += elements_mass()[e] * n
         end
     end
-    sort ? sort!(element_isotope_pair; by = pair_last_abundance, rev = true) : element_isotope_pair
+    [e => n for (e, n) in input_element if iselement(e)], msfix
 end
 
-pair_last_abundance(x) = elements_abundance()[last(x)]
+# """
+#     element_isotope_pairs(element_dictionary; sort = true)
+
+# Elements and isotopes pairs.
+# """
+# function element_isotope_pairs(element_dictionary; sort = true)
+#     element_isotope_pair = mapreduce(vcat, collect(keys(element_dictionary))) do e
+#         v = get(elements_isotopes(), e, nothing)
+#         isnothing(v) && return Pair{String, String}[]
+#         length(v) < 1 && return Pair{String, String}[]
+#         map(v[begin + 1:end]) do x
+#             (e, x)
+#         end
+#     end
+#     sort ? sort!(element_isotope_pair; by = pair_last_abundance, rev = true) : element_isotope_pair
+# end
+
+# pair_last_abundance(x) = elements_abundance()[last(x)]
 
 """
-    element_mass_delta(old_element, new_element)
+    element_mass_delta(old_element, new_element) -> AbstractFloat
 
 Mass of `new_element` minus mass of `old_element`.
 """
 element_mass_delta(old_element, new_element) = elements_mass()[new_element] - elements_mass()[old_element]
 
 """
-    parent_mass_delta(element)
+    parent_mass_delta(element) -> AbstractFloat
 
 Mass of `element` minus mass of parent element of `element`.
 """
@@ -467,14 +516,23 @@ parent_mass_delta(e) = elements_mass()[e] - elements_mass()[parent_element(e)]
 n_parent_mass_delta(x) = last(x) * parent_mass_delta(first(x))
 
 """
-    deltammi(elements::Vector{Pair{String, Int}})
+    deltammi(elements::Vector{Pair{String, Int}}) -> AbstractFloat
+    deltammi(elements::Vector{String}, numbers::Vector{Int}) -> AbstractFloat
 
 Sum of mass of each element in `elements` minus mass of their parent elements.
 """
 deltammi(x) = sum(n_parent_mass_delta, x; init = float(0))
+deltammi(isotopes::Vector{String}, v) = sum((elements_mass()[x] - elements_mass()[parent_element(x)]) * n for (x, n) in zip(isotopes, v))
 
 """
-    update_abundance(precise::Val, prev_abundance, old_element, new_element, nold, nnew, n)
+    nmmi(elements::Vector{String}, numbers::Vector{Int}) -> AbstractFloat
+
+Mass of `elements` and `numbers`.
+"""
+nmmi(isotopes::Vector{String}, v) = sum(elements_mass()[x] * n for (x, n) in zip(isotopes, v))
+
+"""
+    update_abundance(precise::Val, prev_abundance, old_element, new_element, nold, nnew, n) -> AbstractFloat
 
 Update of `prev_abundance` after `n` `old_element` replaced by `new_element`. `nold` and `nnew` are number of elements before replacing.
 """
@@ -504,7 +562,7 @@ function update_abundancen(::Val{false}, prev_abundance, x, y, nold, nnew, delta
 end
 
 """
-    update_proportion(precise::Val, prev_proportion, nold, nnew, n) 
+    update_proportion(precise::Val, prev_proportion, nold, nnew, n) -> AbstractFloat
     
 Update of `prev_proportion` after `n` elements replacing. `nold` and `nnew` are number of elements before replacing.
 """
@@ -529,7 +587,7 @@ function update_proportionn(::Val{false}, prev_proportion, nold, nnew, delta)
 end
 
 """
-    update_inverse_proportion(precise::Val, prev_inverse_proportion, nold, nnew, delta)
+    update_inverse_proportion(precise::Val, prev_inverse_proportion, nold, nnew, delta) -> AbstractFloat
 
 Update of `prev_inverse_proportion` after `n` elements replacing. `nold` and `nnew` are number of elements before replacing.
 """

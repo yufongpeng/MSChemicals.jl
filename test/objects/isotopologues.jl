@@ -1,7 +1,7 @@
 @info "Running Isotopologues and TandemIsotopologues"
 
-p1 = MSC.maximal_proportion(Val(false), Dict("[33S]" => 6, "[34S]" => 6), Dict("S" => 1))
-p2 = MSC.maximal_proportion(Val(false), Dict("[33S]" => 6, "[34S]" => 6), Dict("S" => 11))
+p1 = MSC.maximal_proportion(Val(false), Dict("[33S]" => 6, "[34S]" => 6), Dict("S" => 1), [])
+p2 = MSC.maximal_proportion(Val(false), Dict("[33S]" => 6, "[34S]" => 6), Dict("S" => 11), [])
 
 it1 = Isotopologues(icglc[1]; abundance = 1e5, threshold = crit(1e1, 1e-2))
 it2 = Isotopologues(ioncore(icglc[1]); abundance = 1e5, abtype = :total, threshold = crit(1e1, 1e-2))
@@ -46,7 +46,7 @@ d0 = MSC.dictionary_elements(chemicalelements(ipsi2[1]))
 d1 = MSC.dictionary_elements(chemicalelements(inputchemical(itit5.Chemical[14])))
 d2 = MSC.dictionary_elements(chemicalelements(outputchemical(itit5.Chemical[14])))
 
-d3, d4, d5 = last.(MSC.serieschemicaldata(itit6.Chemical[12]))
+d3, d4, d5 = MSC.dictionary_elements.(last.(MSC.serieschemicaldata(itit6.Chemical[12])))
 
 @info "Running isotpologues function on large chemical"
 Isotopologues("C494H776O148N136S4"; abtype = :total)

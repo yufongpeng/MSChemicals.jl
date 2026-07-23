@@ -21,7 +21,7 @@ isotopeelements_vec(elements, isotopes) = collect(pairs(isotopeelements(elements
 
 function chemicalformula(x::Groupedisotopomers; kwargs...) 
     elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); loss = false))
-    chemicalformula(isotopeelements(elements, first(x.isotopes)); kwargs...)
+    chemicalformula(isotopeelements(elements, x.isotopes[begin]); kwargs...)
 end
 chemicalformula(ct::ChemicalTransition; kwargs...) = chemicalformula(chemicalentity(ct); kwargs...)::String
 
@@ -35,7 +35,7 @@ function chemicalformula(x::IsotopomerizedSchema; kwargs...)
 end
 function chemicalformula(x::Groupedisotopomerizedschema; kwargs...) 
     elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); loss = false))
-    chemicalformula(isotopeelements(elements, first(x.isotopes)); kwargs..., ischemical = false)
+    chemicalformula(isotopeelements(elements, x.isotopes[begin]); kwargs..., ischemical = false)
 end
 
 function reverse_formula(x, ischemical, loss) 
@@ -50,6 +50,7 @@ function reverse_formula(x, ischemical, loss)
     end
 end
     
+reverse_elements(x::ElementsVector, loss) = loss ? ElementsVector(x.elements, [-v for v in x.numbers]) : x
 reverse_elements(x::Vector{<: Pair}, loss) = loss ? [k => -v for (k, v) in x] : x
 reverse_elements(x::Dict, loss) = loss ? Dict(k => -v for (k, v) in x) : x
 reverse_elements(x::Dictionary, loss) = loss ? Dictionary(keys(x), [-v for v in x]) : x
@@ -64,7 +65,7 @@ end
 
 function chemicalelements(x::Groupedisotopomers; loss = false, kwargs...) 
     elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); kwargs..., loss = false))
-    reverse_elements(isotopeelements_vec(elements, first(x.isotopes)), loss)
+    reverse_elements(isotopeelements_vec(elements, x.isotopes[begin]), loss)
 end
 chemicalelements(ct::ChemicalTransition; loss = false, kwargs...) = chemicalelements(chemicalentity(ct); loss, kwargs...)::Vector{Pair{String, Int}}
 
@@ -78,18 +79,18 @@ end
 chemicalelements(x::ChemicalSchema; kwargs...) = vcat((repeat(chemicalelements(k; kwargs...), v) for (k, v) in zip(x.schema, x.number))...)
 function chemicalelements(x::Groupedisotopomerizedschema; loss = false, kwargs...) 
     elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); kwargs..., loss = false))
-    reverse_elements(isotopeelements_vec(elements, first(x.isotopes)), loss)
+    reverse_elements(isotopeelements_vec(elements, x.isotopes[begin]), loss)
 end
 
 isotopomersisotopes(isobars::Isobars; kwargs...) = isotopomersisotopes(chemicalentity(isobars); kwargs...)::Vector{Pair{String, Int}}
-isotopomersisotopes(isotopomers::Isotopomers; loss = false, kwargs...) = reverse_elements(isotopomers.isotopes, loss)
-isotopomersisotopes(isotopomers::Groupedisotopomers; loss = false, kwargs...) = reverse_elements(first(isotopomers.isotopes), loss)
+isotopomersisotopes(isotopomers::Isotopomers; loss = false, kwargs...) = collect(reverse_elements(isotopomers.isotopes, loss))
+isotopomersisotopes(isotopomers::Groupedisotopomers; loss = false, kwargs...) = collect(reverse_elements(isotopomers.isotopes[begin], loss))
 isotopomersisotopes(ct::ChemicalTransition; kwargs...) = isotopomersisotopes(chemicalentity(ct); kwargs...)::Vector{Pair{String, Int}}
 
 isotopomersisotopes(sch::ElementalScheme{true}; loss = false, kwargs...) = isotopomersisotopes(sch.chemical; loss, kwargs...)
 isotopomersisotopes(sch::ElementalScheme{false}; loss = false, kwargs...) = isotopomersisotopes(sch.chemical; loss = !loss, kwargs...)
-isotopomersisotopes(x::IsotopomerizedSchema; loss = false, kwargs...) = reverse_elements(x.isotopes, loss)
-isotopomersisotopes(x::Groupedisotopomerizedschema; loss = false, kwargs...) = reverse_elements(first(x.isotopes), loss)
+isotopomersisotopes(x::IsotopomerizedSchema; loss = false, kwargs...) = collect(reverse_elements(x.isotopes, loss))
+isotopomersisotopes(x::Groupedisotopomerizedschema; loss = false, kwargs...) = collect(reverse_elements(x.isotopes[begin], loss))
 
 isotopomerstate(sch::ElementalScheme{true}; isotope_unit = nothing, isotope = "[13C]", loss = false, kwargs...) = _isotopomerstate(isotopomersisotopes(sch; loss = false), isnothing(isotope_unit) ? elements_mass()[isotope] - elements_mass()[elements_parents()[isotope]] : isotope_unit; loss, kwargs..., ischemical = false)
 isotopomerstate(sch::ElementalScheme{false}; isotope_unit = nothing, isotope = "[13C]", loss = false, kwargs...) = _isotopomerstate(isotopomersisotopes(sch; loss = false), isnothing(isotope_unit) ? elements_mass()[isotope] - elements_mass()[elements_parents()[isotope]] : isotope_unit; loss = !loss, kwargs..., ischemical = false)
@@ -111,8 +112,8 @@ end
 groupedisotopomersisotopes(x::ElementalScheme{true}; loss = false, kwargs...) = groupedisotopomersisotopes(x.chemical; loss, kwargs...)
 groupedisotopomersisotopes(x::ElementalScheme{false}; loss = false, kwargs...) = groupedisotopomersisotopes(x.chemical; loss = !loss, kwargs...)
 groupedisotopomersisotopes(x::ChemicalSchema; loss = false, kwargs...) = Pair{String, Int}[]
-groupedisotopomersisotopes(x::Groupedisotopomers; loss = false, kwargs...) = reverse_elements.(x.isotopes, loss)
-groupedisotopomersisotopes(x::Groupedisotopomerizedschema; loss = false, kwargs...) = reverse_elements.(x.isotopes, loss)
+groupedisotopomersisotopes(x::Groupedisotopomers; loss = false, kwargs...) = [collect(reverse_elements(y, loss)) for y in x.isotopes]
+groupedisotopomersisotopes(x::Groupedisotopomerizedschema; loss = false, kwargs...) = [collect(reverse_elements(y, loss)) for y in x.isotopes]
 
 groupedisotopomersabundance(x::ElementalScheme; kwargs...) = groupedisotopomersabundance(x.chemical; kwargs...)
 groupedisotopomersabundance(x::ChemicalSchema; kwargs...) = [1.0]
@@ -123,6 +124,7 @@ groupedisotopomersabundance(x::Groupedisotopomerizedschema; kwargs...) = x.abund
     chemicalformula(elements::Dict; delim = "", unique = true, ischemical = true, loss = false) -> String
     chemicalformula(elements::Dictionary; delim = "", unique = true, ischemical = true, loss = false) -> String
     chemicalformula(elements::Vector{<: Pair}; delim = "", unique = true, ischemical = true, loss = false) -> String
+    chemicalformula(elements::ElementsVector; delim = "", unique = true, ischemical = true, loss = false) -> String
 
 Create chemical formula using given element-number pairs. 
 
@@ -149,6 +151,7 @@ end
 
 chemicalformula(elements::Dict; delim = "", unique = true, loss = false, ischemical = true) = _chemicalformula(elements; delim, unique, loss, ischemical)
 chemicalformula(elements::Dictionary; delim = "", unique = true, loss = false, ischemical = true) = _chemicalformula(pairs(elements); delim, unique, loss, ischemical)
+chemicalformula(elements::ElementsVector; delim = "", unique = true, loss = false, ischemical = true) = _chemicalformula(elements; delim, unique, loss, ischemical)
 
 function _chemicalformula(elements; delim = "", unique = false, loss = false, ischemical = true)
     if all(x -> last(x) >= 0, elements)
@@ -184,19 +187,25 @@ function chemicalelements(formula::AbstractString; loss = false, kwargs...)
 end
 
 """
-    unique_elements(elements::Vector{<: Pair}) -> Vector{<: Pair}
+    unique_elements(elements::Vector{<:Pair}) -> Vector{<: Pair}
     unique_elements(elements::Dict) -> Dict
     unique_elements(elements::Dictionary) -> Dictionary
+    unique_elements(elements::ElementsVector) -> ElementsVector
 
 Elements container with no duplicated element keys or zeros.
 """
 unique_elements(elements::T) where T = unique_elements(T, elements)
-unique_elements(::Type{Dictionary}, elements) = filter!(!=(0), dictionary_elements(Dictionary, elements))
-unique_elements(::Type{Dict}, elements) = Dict(pairs(unique_elements(Dictionary, elements)))
-unique_elements(::Type{<: Vector{<: Pair}}, elements) = collect(pairs(unique_elements(Dictionary, elements)))
-unique_elements(::Type{Dict}, elements::Dict) = filter(x -> last(x) != 0, elements)
-unique_elements(::Type{<: Vector{<: Pair}}, elements::Dict) = filter!(x -> last(x) != 0, collect(elements))
-unique_elements(::Type{Dictionary}, elements::Dictionary) = filter(!=(0), elements)
+unique_elements(::Type{<:Dictionary}, elements) = filter!(!=(0), dictionary_elements(Dictionary, elements))
+unique_elements(::Type{<:Dict}, elements) = Dict(pairs(unique_elements(Dictionary, elements)))
+unique_elements(::Type{<:Vector{<:Pair}}, elements) = collect(pairs(unique_elements(Dictionary, elements)))
+unique_elements(::Type{<:Dict}, elements::Dict) = filter(x -> last(x) != 0, elements)
+unique_elements(::Type{<:Vector{<:Pair}}, elements::Dict) = filter!(x -> last(x) != 0, collect(elements))
+unique_elements(::Type{<:Dictionary}, elements::Dictionary) = filter(!=(0), elements)
+function unique_elements(::Type{<:ElementsVector}, elements::ElementsVector) 
+    id = findall(!=(0), elements.numbers)
+    ElementsVector(elements.elements[id], elements.numbers[id])
+end
+unique_elements(::Type{<: Vector{<: Pair}}, elements::ElementsVector) = filter!(x -> last(x) != 0, collect(elements))
 
 sort_unique_elements(x) = sort!(unique_elements(x))
 
@@ -204,6 +213,7 @@ sort_unique_elements(x) = sort!(unique_elements(x))
     dictionary_elements([Dicttype = Dict], elements::Vector{<: Pair}) -> Dicttype
     dictionary_elements([Dicttype = Dict], elements::Dict) -> Dicttype
     dictionary_elements([Dicttype = Dict], elements::Dictionary) -> Dicttype
+    dictionary_elements([Dicttype = Dict], elements::ElementsVector) -> Dicttype
 
 Create a dictionary from element-number pairs. As elements can be duplicated in the original vector, the new dictionary is convenient for updating elements number.
 """
@@ -214,11 +224,14 @@ dictionary_elements(::Type{Dict}, elements::Dict) = elements
 dictionary_elements(::Type{Dictionary}, elements::Dict) = Dictionary(keys(elements), values(elements))
 dictionary_elements(::Type{Dict}, elements::Dictionary) = Dict(pairs(elements))
 dictionary_elements(::Type{Dictionary}, elements::Dictionary) = elements
+dictionary_elements(::Type{Dict}, elements::ElementsVector) = Dict(elements)
+dictionary_elements(::Type{Dictionary}, elements::ElementsVector) = Dictionary(elements.elements, elements.numbers)
 
 """
     gain_elements(elements::Vector{<: Pair}, y...) -> Vector{<: Pair}
     gain_elements(elements::Dict, y...) -> Dict
     gain_elements(elements::Dictionary, y...) -> Dictionary
+    gain_elements(elements::ElementVector, y...) -> ElementVector
 
 Add elements in `y` to copied `elements`.
 """
@@ -228,6 +241,7 @@ gain_elements(elements, y...) = gain_elements!(copy(elements), y...)
     gain_elements!(elements::Vector{<: Pair}, y...) -> Vector{<: Pair}
     gain_elements!(elements::Dict, y...) -> Dict
     gain_elements!(elements::Dictionary, y...) -> Dictionary
+    gain_elements!(elements::ElementVector, y...) -> ElementVector
 
 Add elements in `y` to `elements`.
 """
@@ -246,6 +260,13 @@ function gain_elements!(elements::Dictionary, y...)
 end
 
 function gain_elements!(elements::Vector{<: Pair}, y...)
+    for d in y 
+        _gain_elements!(elements, d)
+    end
+    elements
+end
+
+function gain_elements!(elements::ElementsVector, y...)
     for d in y 
         _gain_elements!(elements, d)
     end
@@ -275,10 +296,64 @@ function __gain_elements!(elements::Vector{<: Pair}, y)
     end
 end
 
+function __gain_elements!(elements::ElementsVector, y)
+    for (k, v) in y
+        i = findfirst(==(k), elements.elements)
+        if isnothing(i)
+            push!(elements.elements, k)
+            push!(elements.numbers, v)
+        else
+            elements.numbers[i] = elements.numbers[i] + v 
+        end
+    end
+    elements
+end
+
+function parallel_gain_elements!(els::Vector{Vector{ElementsVector}})
+    prev_el = String[]
+    prev_ns = Vector{Int}[] 
+    @inbounds for i in Iterators.reverse(eachindex(els[begin]))
+        if isempty(prev_el) 
+            prev_el = els[begin][i].elements
+            prev_ns = [el[i].numbers for el in els]
+            continue
+        end
+        iter_el = els[begin][i].elements
+        curr_el = els[begin][i].elements
+        curr_ns = [copy(el[i].numbers) for el in els]
+        pushed = false
+        for (ie, e) in enumerate(prev_el) 
+            j = findfirst(==(e), iter_el)
+            if isnothing(j)
+                if pushed
+                    push!(curr_el, e)
+                else
+                    curr_el = push!(copy(curr_el), e)
+                    pushed = true
+                end
+                for (curr_n, prev_n) in zip(curr_ns, prev_ns)
+                    push!(curr_n, prev_n[ie])
+                end
+            else 
+                for (curr_n, prev_n) in zip(curr_ns, prev_ns)
+                    curr_n[j] = curr_n[j] + prev_n[ie]
+                end
+            end
+        end
+        for (j, el) in enumerate(els) 
+            el[i] = ElementsVector(curr_el, curr_ns[j])
+        end
+        prev_el = curr_el
+        prev_ns = curr_ns
+    end
+    els
+end
+
 """
     loss_elements(elements::Vector{<: Pair}, y...) -> Vector{<: Pair}
     loss_elements(elements::Dict, y...) -> Dict
     loss_elements(elements::Dictionary, y...) -> Dictionary
+    loss_elements(elements::ElementVector, y...) -> ElementVector
 
 Substract elements in `y` from copied `elements`.
 """
@@ -288,6 +363,7 @@ loss_elements(elements, y...) = loss_elements!(copy(elements), y...)
     loss_elements!(elements::Vector{<: Pair}, y...) -> Vector{<: Pair}
     loss_elements!(elements::Dict, y...) -> Dict
     loss_elements!(elements::Dictionary, y...) -> Dictionary
+    loss_elements!(elements::ElementVector, y...) -> ElementVector
 
 Substract elements in `y` from `elements`.
 """
@@ -306,6 +382,13 @@ function loss_elements!(elements::Dictionary, y...)
 end
 
 function loss_elements!(elements::Vector{<: Pair}, y...)
+    for d in y 
+        _loss_elements!(elements, d)
+    end
+    elements
+end
+
+function loss_elements!(elements::ElementsVector, y...)
     for d in y 
         _loss_elements!(elements, d)
     end
@@ -333,6 +416,36 @@ function __loss_elements!(elements::Vector{<: Pair}, y)
     for (k, v) in y
         v != 0 && push!(elements, k => -v)
     end
+end
+
+function __loss_elements!(elements::ElementsVector, y)
+    for (k, v) in y
+        i = findfirst(==(k), elements.elements)
+        if isnothing(i)
+            push!(elements.elements, k)
+            push!(elements.numbers, v)
+        else
+            elements.numbers[i] = elements.numbers[i] - v 
+        end
+    end
+    elements
+end
+
+function universal_loss_elements!(els::Vector{Vector{ElementsVector}})
+    prev_el = els[begin][end].elements
+    isempty(prev_el) && return els
+    prev_ns = [el[end].numbers for el in els]
+    i = 1
+    @inbounds while i < lastindex(els[begin])
+        for (ie, e) in enumerate(prev_el) 
+            j = findfirst(==(e), els[begin][i].elements)
+            for (el, prev_n) in zip(els, prev_ns)
+                el[i].numbers[j] = el[i].numbers[j] - prev_n[ie]
+            end
+        end
+        i += 1
+    end
+    els
 end
 
 function encode_isotopes(formula::AbstractString)

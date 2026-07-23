@@ -3,7 +3,7 @@ module MassSpecChemicals
 using Combinatorics, TypedTables, MLStyle, Statistics, StatsBase, Dictionaries, Intervals, SplitApplyCombine, Plots
 using UnitfulMoles: parse_compound
 using SentinelArrays: ChainedVector
-import Base: show, length, +, -, *, /, isless, isequal, in, union, intersect, iterate, Broadcast.broadcastable, ==, hash, copy
+import Base: show, length, +, -, *, /, isless, isequal, in, union, intersect, iterate, Broadcast.broadcastable, ==, hash, copy, axes, isempty, eltype
 
 export 
     # Types

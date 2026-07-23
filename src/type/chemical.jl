@@ -117,6 +117,11 @@ Isobars(chemicals::AbstractVector, abundance::AbstractArray) = _Isobars(collect(
 _Isobars(chemicals::AbstractVector, abundance::AbstractArray) = Isobars(chemicals, collect(abundance))
 _Isobars(chemicals::AbstractVector, abundance::VecOrMat) = Isobars(chemicals, abundance)
 
+struct ElementsVector
+    elements::Vector{String}
+    numbers::Vector{Int}
+end
+
 """
     Isotopomers{T<:AbstractChemical} <: AbstractChemical
 
@@ -124,10 +129,10 @@ Chemicals differed from isotopic replacement location.
 
 # Fields 
 * `parent::T`: shared chemical structure of isotopomers prior to isotopic replacement. 
-* `isotopes::Vector{Pair{String, Int}}`: Isotopes-number pairs of isotopic replacement.
+* `isotopes::ElementsVector`: isotopes-number pairs of isotopic replacement.
 
 # Constructors
-* `Isotopomers(parent::AbstractChemical, isotopes::Vector{Pair{String, Int}})`
+* `Isotopomers(parent::AbstractChemical, isotopes::ElementsVector)`
 * `Isotopomers(parent::AbstractChemical, fullformula::String)`
 * `Isotopomers(parent::AbstractChemical, fullelements::Dict)`
 * `Isotopomers(parent::AbstractChemical, fullelements::Vector{Pair{String, Int}})`
@@ -135,22 +140,29 @@ All minor isotopes are regarded as isotopic replacement in `fullformula` and `fu
 """
 struct Isotopomers{T<:AbstractChemical} <: AbstractChemical
     parent::T 
-    isotopes::Vector{Pair{String, Int}}
+    isotopes::ElementsVector
 end
 
 function Isotopomers(chemical::AbstractChemical, fullformula::String)
     Isotopomers(chemicalparent(chemical), dictionary_elements(chemicalelements(fullformula)))
 end
 
+function Isotopomers(chemical::AbstractChemical, fullelements::Vector{Pair{String, Int}})
+    Isotopomers(chemicalparent(chemical), dictionary_elements(fullelements))
+end
+
 function Isotopomers(chemical::AbstractChemical, fullelements::Dict)
     parent = chemicalparent(chemical)
     dp = dictionary_elements(chemicalelements(parent))
-    dr = copy(fullelements)
-    for k in keys(fullelements)
-        iselement(k) && (delete!(dr, k); continue)
-        dr[k] -= get(dp, k, 0) 
+    ev = ElementsVector(collect(keys(fullelements)), collect(values(fullelements)))
+    del = Int[]
+    for (i, (k, n)) in enumerate(ev)
+        iselement(k) && (push!(del, i); continue)
+        ev.numbers[i] = n - get(dp, k, 0) 
     end
-    Isotopomers(parent, collect(dr))
+    deleteat!(ev.elements, del)
+    deleteat!(ev.numbers, del)
+    Isotopomers(parent, ev)
 end
 
 """
@@ -162,16 +174,16 @@ Isotopomerized chemicals grouped by isotopomer state.
 * `parent::T`: shared chemical structure prior to isotopic replacement. 
 * `state::Int`: isotopomer state.
 * `isotope::String`: isotope for computing isotopomer state.
-* `isotopes::Vector{Vector{Pair{String, Int}}}`: Isotopes-number pairs of isotopic replacements of each isotopomers.
+* `isotopes::Vector{ElementsVector}`: Isotopes-number pairs of isotopic replacements of each isotopomers.
 * `abundance::Vector{N}`: abundance of each isotopomers.
 """
 struct Groupedisotopomers{T<:AbstractChemical, N} <: AbstractChemical
     parent::T 
     state::Int
     isotope::String
-    isotopes::Vector{Vector{Pair{String, Int}}}
+    isotopes::Vector{ElementsVector}
     abundance::Vector{N}
-    function Groupedisotopomers(parent::T, state::Int, isotope::String, isotopes::Vector{Vector{Pair{String, Int}}}, abundance::Vector{N}) where {T, N}
+    function Groupedisotopomers(parent::T, state::Int, isotope::String, isotopes::Vector{ElementsVector}, abundance::Vector{N}) where {T, N}
         id = sortperm(abundance)
         new{T, N}(parent, state, isotope, isotopes[id], abundance[id])
     end

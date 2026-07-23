@@ -378,7 +378,12 @@ parent_element(x::AbstractString) = get(elements_parents(), x, "")
 Major isotope of isotope `x`.
 """
 function major_isotope(x::AbstractString) 
-    first(get(elements_isotopes(), parent_element(x), [""]))
+    e = parent_element(x)
+    if haskey(elements_isotopes(), e)
+        first(elements_isotopes()[e])
+    else
+        "" 
+    end
 end
 
 """
@@ -387,6 +392,11 @@ end
 `i`th minor isotope of isotope `x`.
 """
 function minor_isotope(x::AbstractString, i::Int = 1)
-    x = get(elements_isotopes(), parent_element(x), [""])
-    i < lastindex(x) ? x[i + 1] : "" 
+    e = parent_element(x)
+    if haskey(elements_isotopes(), e)
+        v = elements_isotopes()[e]
+        i < lastindex(v) ? v[i + 1] : "" 
+    else
+        ""
+    end
 end

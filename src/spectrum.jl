@@ -341,7 +341,7 @@ function Fragmentation(producttable::Table, mztable::Table; chemicalparser = Che
                 product = producttable.Product[pid],
                 proportion = producttable.Proportion[pid],
                 transmission = sum(producttable.Proportion[pid])
-                )
+            )
         end
         Table(; (p => ChainedVector(getproperty.(t, p)) for p in propertynames(first(t)))...)
     else
@@ -407,7 +407,7 @@ end
 function peak_table(transitiontable::Table; groupedisotopomers = true, isotope = "[13C]")
     :MZTable in propertynames(transitiontable) || throw(ArgumentError("No column`MZTable` in transitiontable"))
     id = findall(!isempty, transitiontable.MZTable)
-    mztables = transitiontable.MZTable[id]
+    mztables = @view transitiontable.MZTable[id]
     if groupedisotopomers
         tables = map(mztables) do table 
             group_isotopologues(table; isotope)

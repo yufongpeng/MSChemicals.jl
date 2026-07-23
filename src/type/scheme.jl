@@ -95,26 +95,33 @@ Mutiple chemical schema with delocalized isotopic replacements.
 
 # Fields
 * `schema::T`: parent scheme
-* `isotopes::Vector{Pair{String, Int}}`: delocalized isotopic replacements
+* `isotopes::ElementsVector`: delocalized isotopic replacements
 """
 struct IsotopomerizedSchema{T<:ChemicalSchema} <: AbstractScheme 
     parent::T
-    isotopes::Vector{Pair{String, Int}}
+    isotopes::ElementsVector
 end
 
 function IsotopomerizedSchema(chemical::AbstractScheme, fullformula::String)
     IsotopomerizedSchema(chemicalparent(chemical), dictionary_elements(chemicalelements(fullformula)))
 end
 
+function IsotopomerizedSchema(chemical::AbstractScheme, fullelements::Vector{Pair{String, Int}})
+    IsotopomerizedSchema(chemicalparent(chemical), dictionary_elements(fullelements))
+end
+
 function IsotopomerizedSchema(chemical::AbstractScheme, fullelements::Dict)
     parent = chemicalparent(chemical)
     dp = dictionary_elements(chemicalelements(parent))
-    dr = copy(fullelements)
-    for k in keys(fullelements)
-        iselement(k) && (delete!(dr, k); continue)
-        dr[k] -= get(dp, k, 0) 
+    ev = ElementsVector(collect(keys(fullelements)), collect(values(fullelements)))
+    del = Int[]
+    for (i, (k, n)) in enumerate(ev)
+        iselement(k) && (push!(del, i); continue)
+        ev.numbers[i] = n - get(dp, k, 0) 
     end
-    IsotopomerizedSchema(parent, collect(dr))
+    deleteat!(ev.elements, del)
+    deleteat!(ev.numbers, del)
+    IsotopomerizedSchema(parent, ev)
 end
 
 
@@ -127,16 +134,16 @@ Isotopomerized schema grouped by isotopomer state.
 * `parent::T`: shared chemical scheme prior to isotopic replacement. 
 * `state::Int`: isotopomer state.
 * `isotope::String`: isotope for computing isotopomer state.
-* `isotopes::Vector{Vector{Pair{String, Int}}}`: Isotopes-number pairs of isotopic replacements of each isotopomers.
+* `isotopes::Vector{ElementsVector}`: Isotopes-number pairs of isotopic replacements of each isotopomers.
 * `abundance::Vector{N}`: abundance of each isotopomers.
 """
 struct Groupedisotopomerizedschema{T<:AbstractScheme, N} <: AbstractScheme
     parent::T 
     state::Int
     isotope::String
-    isotopes::Vector{Vector{Pair{String, Int}}}
+    isotopes::Vector{ElementsVector}
     abundance::Vector{N}
-    function Groupedisotopomerizedschema(parent::T, state::Int, isotope::String, isotopes::Vector{Vector{Pair{String, Int}}}, abundance::Vector{N}) where {T, N}
+    function Groupedisotopomerizedschema(parent::T, state::Int, isotope::String, isotopes::Vector{ElementsVector}, abundance::Vector{N}) where {T, N}
         id = sortperm(abundance)
         new{T, N}(parent, state, isotope, isotopes[id], abundance[id])
     end

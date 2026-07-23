@@ -1,13 +1,13 @@
 # ==========================================================================================================================
 # Mid level MSn
-function isotopologues_elements_msn(precise::Val, element_dictionary_vec, msfix_vec, abundance, abtype, threshold) 
-    max_dictionary_vec = map(x -> maximal_abundance_elements(precise, x), element_dictionary_vec)
+function isotopologues_elements_msn(precise::Val, element_vp_vec, msfix_vec, abundance, abtype, threshold) 
+    max_vp_vec = map(x -> maximal_abundance_composition(precise, x), element_vp_vec)
     # max_proportion_vec = map(x -> isotopicabundance(precise, x), max_dictionary_vec) 
-    total, abundance_cutoff = abundance_threshold_msn(abtype, abundance, threshold, max_dictionary_vec, element_dictionary_vec) 
+    total, abundance_cutoff = abundance_threshold_msn(abtype, abundance, threshold, max_vp_vec, element_vp_vec) 
     proportioon_cutoff = abundance_cutoff / total
-    tbls = map(isotopologues_elements_msx, element_dictionary_vec, msfix_vec, max_dictionary_vec, [proportioon_cutoff for _ in eachindex(element_dictionary_vec)], [precise for _ in eachindex(element_dictionary_vec)])
+    tbls = map(isotopologues_elements_msx, element_vp_vec, msfix_vec, max_vp_vec, [proportioon_cutoff for _ in eachindex(element_vp_vec)], [precise for _ in eachindex(element_vp_vec)])
     first(tbls).Abundance .*= total
-    els = Vector{Vector{Pair{String, Int}}}[]
+    els = Vector{ElementsVector}[]
     abv = float(Int)[]
     mass = Vector{float(Int)}[]
     rec_vec_ab!(els, abv, mass, tbls, abundance_cutoff, prod(first(tbl.Abundance) for tbl in tbls), [1 for _ in eachindex(tbls)], 1)
@@ -16,21 +16,23 @@ function isotopologues_elements_msn(precise::Val, element_dictionary_vec, msfix_
     if dopostnormalize(abtype)
         abv = normalize_abundance(abv, abundance, abtype)
     end
-    (; Element = els[idm], Mass = mass[idm], Abundance = abv)
+    (; Element = parallel_gain_elements!(els[idm]), Mass = mass[idm], Abundance = abv)
 end
 
-function isotopologues_elements_msx(element_dictionary, msfix, max_dictionary, proportioon_cutoff, precise)
-    isempty(element_dictionary) && return (; Element = [get_isotope_vec(element_dictionary)], Mass = [mmi(element_dictionary) + msfix], Abundance = [float(1)])
-    element_chemical = [get_isotope_vec(last(max_dictionary))]
-    abundance_chemical = [first(max_dictionary)]
-    mass_chemical = [mmi(last(max_dictionary)) + msfix]
-    rec_addminusisotopes!(element_chemical, mass_chemical, abundance_chemical, last(max_dictionary), element_isotope_pairs(element_dictionary; sort = false), 1, first(mass_chemical), first(abundance_chemical), proportioon_cutoff, (true, true), precise)
+function isotopologues_elements_msx(element_vp, msfix, max_vp, proportioon_cutoff, precise)
+    isempty(element_vp) && return (; Element = [ElementsVector(String[], Int[])], Mass = [mmi(element_vp) + msfix], Abundance = [float(1)])
+    nisotopes = get_nisotopes(element_vp)
+    isotopes = get_isotopes(element_vp)
+    iid = findall(!ismajor, isotopes)
+    element_chemical = [last(max_vp)[iid]]
+    mass_chemical = [nmmi(isotopes, last(max_vp)) + msfix]
+    abundance_chemical = [first(max_vp)]
+    rec_addminusisotopes!(element_chemical, mass_chemical, abundance_chemical, last(max_vp), isotopes, nisotopes, iid, 2, 1, 1, first(mass_chemical), first(abundance_chemical), proportioon_cutoff, (true, true), precise)
     id = sortperm(abundance_chemical; rev = true)
-    (; Element = element_chemical[id], Mass = mass_chemical[id], Abundance = abundance_chemical[id]) 
+    isotopes = isotopes[iid]
+    (; Element = [ElementsVector(isotopes, element_chemical[i]) for i in id], Mass = mass_chemical[id], Abundance = abundance_chemical[id]) 
 end
 
-# ==========================================================================================================================
-# Low level MSn
 function rec_vec_ab!(els, abv, mass, tbls, abundance_cutoff, maxab, id, msn)
     msn == lastindex(tbls) && return rec_vec_ab_end!(els, abv, mass, tbls, abundance_cutoff, maxab, id)
     maxab /= first(tbls[msn].Abundance)
@@ -54,11 +56,7 @@ function rec_vec_ab_end!(els, abv, mass, tbls, abundance_cutoff, maxab, id)
         ab < abundance_cutoff && break
         id[end] = i
         # el = [tbl.Element[i] for (tbl, i) in zip(tbls, id)]
-        el = [copy(tbl.Element[i]) for (tbl, i) in zip(tbls, id)]
-        prev = empty(el[end])
-        for i in Iterators.reverse(eachindex(el))
-            prev = gain_elements!(el[i], prev)
-        end
+        el = [tbl.Element[i] for (tbl, i) in zip(tbls, id)]
         push!(els, el)
         push!(abv, ab)
         push!(mass, reverse(cumsum(tbl.Mass[i] for (tbl, i) in Iterators.reverse(zip(tbls, id)))))
