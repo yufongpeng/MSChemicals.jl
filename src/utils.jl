@@ -231,30 +231,33 @@ Whether apply post filtering normalization.
 """
 dopostnormalize(::AbstractAbundance) = false 
 dopostnormalize(::List) = true
+
 """
-    abundance_threshold_msn(::AbstractAbundance, abundance, threshold, max_proportion_vec, element_dictionary_vec) 
+    abundance_threshold_vec(::AbstractAbundance, abundance, threshold, max_proportion_vec, element_dictionary_vec) 
 
 Total abundance and threshold for isotopologues abundance prediction at recursion step for MS/MS. 
 """
-function abundance_threshold_msn(::Union{List, Total, Raw}, abundance, threshold, max_proportion_vec, element_dictionary_vec)  
+function abundance_threshold_vec(::Union{List, Total, Raw}, abundance, threshold, max_proportion_vec, element_dictionary_vec)  
     total = abundance
     maxab = total
     for p in max_proportion_vec
-        maxab *= first(p) 
+        maxab *= p
     end
-    total, minimum(makecrit_value(crit(threshold), maxab))
+    threshold_total = minimum(makecrit_value(crit(threshold), maxab)) 
+    total, threshold_total, threshold_total / maxab  
 end
 
-function abundance_threshold_msn(::Max, abundance, threshold, max_proportion_vec, element_dictionary_vec) 
+function abundance_threshold_vec(::Max, abundance, threshold, max_proportion_vec, element_dictionary_vec) 
     total = abundance
     maxab = total 
     for p in max_proportion_vec
-        total /= first(p) 
+        total /= p
     end
-    total, minimum(makecrit_value(crit(threshold), maxab))
+    threshold_total = minimum(makecrit_value(crit(threshold), maxab)) 
+    total, threshold_total, threshold_total / maxab  
 end
 
-function abundance_threshold_msn(::Input, abundance, threshold, max_proportion_vec, element_dictionary_vec) 
+function abundance_threshold_vec(::Input, abundance, threshold, max_proportion_vec, element_dictionary_vec) 
     total = abundance
     maxab = total 
     for p in element_dictionary_vec
@@ -262,9 +265,10 @@ function abundance_threshold_msn(::Input, abundance, threshold, max_proportion_v
     end
     maxab = total
     for p in max_proportion_vec
-        maxab *= first(p) 
+        maxab *= p
     end
-    total, minimum(makecrit_value(crit(threshold), maxab))
+    threshold_total = minimum(makecrit_value(crit(threshold), maxab)) 
+    total, threshold_total, threshold_total / maxab  
 end
 
 """

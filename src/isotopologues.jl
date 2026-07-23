@@ -47,7 +47,7 @@ function Isotopologues(input_chemical::AbstractChemical;
         precise = false 
     ) 
     net_charge = charge(input_chemical)
-    it = isotopologues_elements(Val(precise), chemicalelements(input_chemical), first(abundance), abtype, threshold)
+    it = isotopologues_elements_ms1(Val(precise), chemicalelements(input_chemical), first(abundance), abtype, threshold)
     abs_charge = max(1, abs(net_charge))
     net_charge == 0 ? Table(; 
         ID = [id for _ in eachindex(it)], 
@@ -71,7 +71,7 @@ function Isotopologues_iter(precise::Val, input_chemical::AbstractChemical;
         threshold = rcrit(1e-4),
     ) 
     net_charge = charge(input_chemical)
-    it = isotopologues_elements_iter(precise, chemicalelements(input_chemical), first(abundance), abtype, threshold)
+    it = isotopologues_elements_ms1_iter(precise, chemicalelements(input_chemical), first(abundance), abtype, threshold)
     abs_charge = max(1, abs(net_charge))
     if net_charge == 0 
         (; 
