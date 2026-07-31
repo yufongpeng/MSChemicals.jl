@@ -62,12 +62,12 @@ function istransformedchemicalequal(x::ChemicalSchema, y::ChemicalSchema)
             if ischemicalequal(kx, ky) && vx == y.number[i]
                 pass = true
                 uk[i] = true
-                continue
+                break
             end
         end
         pass || return false
     end
-    true
+    all(uk)
 end
 istransformedchemicalequal(x::ElementalScheme, y::ElementalScheme) = ischemicalequal(x.chemical, y.chemical)
 istransformedchemicalequal(x::StructuralElementalScheme, y::StructuralElementalScheme) = ischemicalequal(structuralscheme(x), structuralscheme(y)) && ischemicalequal(elementalscheme(x), elementalscheme(y))

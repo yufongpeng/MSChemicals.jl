@@ -1,62 +1,40 @@
 # ==========================================================================================================================
 # Mid level MS1
-isotopologues_elements_ms1(precise::Val, x::AbstractString, abundance, abtype, threshold) = 
-    isotopologues_elements(precise, chemicalelements(x), abundance, abtype, threshold)
-isotopologues_elements_ms1(precise::Val, input_element::Vector, abundance, abtype, threshold) = 
-    isotopologues_elements_ms1(precise, get_element_dictionary_fixmass(input_element)..., abundance, abtype, threshold)
-function isotopologues_elements_ms1(precise::Val, element_dictionary::Dict, msfix, abundance, abtype, threshold)
-    isempty(element_dictionary) && return (; Element = [Pair{String, Int}[]], Mass = [mmi(element_dictionary)], Abundance = [abundance], Preab = [one(abundance)]) 
+isotopologues_elements_ms1(precise::Val, x::AbstractString, abundance, abtype, threshold, iter) = 
+    isotopologues_elements(precise, chemicalelements(x), abundance, abtype, threshold, iter)
+isotopologues_elements_ms1(precise::Val, input_element::Vector, abundance, abtype, threshold, iter) = 
+    isotopologues_elements_ms1(precise, get_element_dictionary_fixmass(input_element)..., abundance, abtype, threshold, iter)
+function isotopologues_elements_ms1(precise::Val, element_dictionary::Dict, msfix, abundance, abtype, threshold, iter)
+    isempty(element_dictionary) && return iter ? (; Element = [Pair{String, Int}[]], Mass = [mmi(element_dictionary)], Abundance = [abundance], Preab = [one(abundance)]) : 
+        (; Element = [Pair{String, Int}[]], Mass = [mmi(element_dictionary)], Abundance = [abundance]) 
     element_vp = collect(element_dictionary)
     abtype = abtyped(abtype)
     max_proportion, max_vp = maximal_abundance_elements_composition_check(precise, element_vp, abtype)
-    isotopes, els, mass, abv = isotopologues_elements_ms1(precise, element_vp, msfix, abundance, abtype, threshold, max_proportion, max_vp)
+    isotopes, els, mass, abv, preab = isotopologues_elements_single(precise, element_vp, msfix, abundance, abtype, threshold, max_proportion, max_vp, iter)
     idm = sortperm(mass)
     abv = abv[idm]
     if dopostnormalize(abtype)
         abv = normalize_abundance(abv, abundance, abtype)
     end
-    (; Element = [ElementsVector(isotopes, els[i]) for i in idm], Mass = mass[idm], Abundance = abv)
+    iter ? (; Element = [ElementsVector(isotopes, els[i]) for i in idm], Mass = mass[idm], Abundance = abv, Preab = preab[idm]) : (; Element = [ElementsVector(isotopes, els[i]) for i in idm], Mass = mass[idm], Abundance = abv)
 end
 
-function isotopologues_elements_ms1(precise::Val, element_vp::Vector, msfix, abundance, abtype, threshold, max_proportion, max_vp::Vector)
+function isotopologues_elements_single(precise::Val, element_vp::Vector, msfix, abundance, abtype, threshold, max_proportion, max_vp::Vector, iter)
     total, abundance_cutoff, proportion_cutoff = abundance_threshold_vec(abtype, abundance, threshold, max_proportion, element_vp)
-    tbls = map(subisotopologues, element_vp, [1.0 for _ in eachindex(element_vp)], max_vp, [proportion_cutoff for _ in eachindex(element_vp)], [precise for _ in eachindex(element_vp)])
     max_proportion[begin] *= total
-    isotopes = vcat((tbl.Isotope for tbl in tbls)...)
     els = Vector{Int}[]
     abv = float(Int)[]
     mass = float(Int)[]
-    # @time rec_combination_elements!(els, abv, mass, tbls, abundance_cutoff, prod(max_proportion), msfix, [1 for _ in eachindex(tbls)], 1)
-    combinesubisotopologues!(els, mass, abv, tbls, abundance_cutoff, Int[], msfix, prod(max_proportion), 1)
-    isotopes, els, mass, abv
-end
-
-isotopologues_elements_ms1_iter(precise::Val, x::AbstractString, abundance, abtype, threshold) = 
-    isotopologues_elements_ms1_iter(precise, chemicalelements(x), abundance, abtype, threshold)
-isotopologues_elements_ms1_iter(precise::Val, input_element::Vector, abundance, abtype, threshold) = 
-    isotopologues_elements_ms1_iter(precise, get_element_dictionary_fixmass(input_element)..., abundance, abtype, threshold)
-function isotopologues_elements_ms1_iter(precise::Val, element_dictionary::Dict, msfix, abundance, abtype, threshold)
-    isempty(element_dictionary) && return (; Element = [Pair{String, Int}[]], Mass = [mmi(element_dictionary)], Abundance = [abundance], Preab = [one(abundance)]) 
-    element_vp = collect(element_dictionary)
-    abtype = abtyped(abtype)
-    max_proportion, max_vp = maximal_abundance_elements_composition_check(precise, element_vp, abtype)
-    total, abundance_cutoff, proportion_cutoff = abundance_threshold_vec(abtype, abundance, threshold, max_proportion, element_vp)
-    tbls = map(subisotopologues_iter, element_vp, [1.0 for _ in eachindex(element_vp)], max_vp, [proportion_cutoff for _ in eachindex(element_vp)], [precise for _ in eachindex(element_vp)])
-    max_proportion[begin] *= total
-    isotopes = vcat((tbl.Isotope for tbl in tbls)...)
-    els = Vector{Int}[]
-    abv = float(Int)[]
-    mass = float(Int)[]
-    preab = float(Int)[]
-    # @time rec_combination_elements!(els, abv, mass, tbls, abundance_cutoff, prod(max_proportion), msfix, [1 for _ in eachindex(tbls)], 1)
-    combinesubisotopologues_iter!(els, mass, abv, preab, tbls, abundance_cutoff, Int[],  msfix, prod(max_proportion), 1.0, 1)
-    # els, abv, mass = combination_elements(tbls, abundance_cutoff)
-    idm = sortperm(mass)
-    abv = abv[idm]
-    if dopostnormalize(abtype)
-        abv = normalize_abundance(abv, abundance, abtype)
+    if iter 
+        tbls = map(subisotopologues_iter, element_vp, [1.0 for _ in eachindex(element_vp)], max_vp, [proportion_cutoff for _ in eachindex(element_vp)], [precise for _ in eachindex(element_vp)])
+        preab = float(Int)[]
+        combinesubisotopologues_iter!(els, mass, abv, preab, tbls, abundance_cutoff, Int[],  msfix, prod(max_proportion), 1.0, 1)
+    else
+        tbls = map(subisotopologues, element_vp, [1.0 for _ in eachindex(element_vp)], max_vp, [proportion_cutoff for _ in eachindex(element_vp)], [precise for _ in eachindex(element_vp)])
+        preab = nothing
+        combinesubisotopologues!(els, mass, abv, tbls, abundance_cutoff, Int[], msfix, prod(max_proportion), 1)
     end
-    (; Element = [ElementsVector(isotopes, els[i]) for i in idm], Mass = mass[idm], Abundance = abv, Preab = preab[idm])
+    vcat((tbl.Isotope for tbl in tbls)...), els, mass, abv, preab
 end
 
 function subisotopologues(element_vp, max_proportion, max_vp, proportioon_cutoff, precise)

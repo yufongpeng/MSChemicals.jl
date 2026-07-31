@@ -13,7 +13,7 @@ function detectedchemicaldata(precursor, product)
 end
 
 """
-    serieschemicaldata(raw_product; precursor)
+    serieschemicaldata(input_chemical; precursor)
 
 Series detected chemical and dictionaries of elements.
 """
@@ -37,7 +37,7 @@ function serieschemicaldata(input_chemical)
 end
 
 """
-    seriesisotopomerize(transitions::Vector{<: AbstractChemicalsSchema}, els::Vector{<: Vector{<: Dict}})
+    seriesisotopomerize(transitions::Vector{<: AbstractChemicalsSchema}, els::Vector{<: Vector{ElementsVector}})
 
 Serial isotomoperize `transitions` with detected isotpic replacements `els`.
 """
@@ -52,78 +52,9 @@ function seriesisotopomerize(transitions::Vector{<: AbstractChemicalsSchema}, el
 end
 
 """
-    maximal_composition(elements) -> Vector{Int}
-
-Numbers of isotopes of maximal abundance.
-"""
-function maximal_composition(elements)
-    max_vps = Vector(undef, length(elements))
-    for (iem, (e, m)) in enumerate(elements)
-        m += 1
-        xs = elements_isotopes()[e]
-        ns = [floor(Int, m * elements_abundance()[x]) for x in xs]
-        if sum(ns) >= m
-            d = sum(ns) - m + 1
-            i = lastindex(ns)
-            while d > 0
-                if ns[i] > 0
-                    ns[i] -= 1
-                    d -= 1
-                else
-                    i -= 1
-                end
-            end
-        elseif sum(ns) < m - 1
-            d = m - sum(ns) - 1
-            while d > 0
-                _, i = findmax([elements_abundance()[x] / (ns[i] + 1) for (i, x) in enumerate(xs)])
-                ns[i] += 1 
-                d -= 1
-            end
-        end
-        max_vps[iem] = ns
-    end
-    vcat(max_vps...)
-end
-
-"""
-    maximal_abundance(precise::Val, elements, prev = 1.0) -> AbstractFloat
-
-Maximal abundance.
-"""
-function maximal_abundance(precise::Val, elements, prev = 1.0)
-    for (e, m) in elements
-        m += 1
-        xs = elements_isotopes()[e]
-        ns = [floor(Int, m * elements_abundance()[x]) for x in xs]
-        if sum(ns) >= m
-            d = sum(ns) - m + 1
-            i = lastindex(ns)
-            while d > 0
-                if ns[i] > 0
-                    ns[i] -= 1
-                    d -= 1
-                else
-                    i -= 1
-                end
-            end
-        elseif sum(ns) < m - 1
-            d = m - sum(ns) - 1
-            while d > 0
-                _, i = findmax([elements_abundance()[x] / (ns[i] + 1) for (i, x) in enumerate(xs)])
-                ns[i] += 1 
-                d -= 1
-            end
-        end
-        prev *= safe_multinomial(precise, ns) * prod(precise_exp(precise, elements_abundance()[y], x) for (x, y) in zip(ns, xs))
-    end
-    return_abundance(precise, prev)
-end
-
-"""
     maximal_abundance_composition(precise::Val, elements, prev = 1.0) -> Tuple{<:AbstractFloat, Vector{Int}}
 
-Numbers of isotopes of maximal abundance.
+Isotope composition of maximal abundance isotopologue.
 """
 function maximal_abundance_composition(precise::Val, elements, prev = 1.0)
     max_vps = Vector(undef, length(elements))
@@ -156,6 +87,11 @@ function maximal_abundance_composition(precise::Val, elements, prev = 1.0)
     return_abundance(precise, prev), vcat(max_vps...)
 end
 
+"""
+    maximal_abundance_elements_composition(precise::Val, elements, prev = 1.0) -> Tuple{Vector{<:AbstractFloat}, Vector{Vector{Int}}}
+
+Isotope composition of maximal abundance for each subisotopologues.
+"""
 function maximal_abundance_elements_composition(precise::Val, elements)
     max_vps = Vector(undef, length(elements))
     max_abs = Vector{typeof(return_abundance(precise, big(0.0)))}(undef, length(elements))
@@ -188,9 +124,11 @@ function maximal_abundance_elements_composition(precise::Val, elements)
     max_abs, max_vps
 end
 
-return_abundance(::Val{true}, x) = x 
-return_abundance(::Val{false}, x) = convert(float(Int), x) 
+"""
+    maximal_abundance_elements_composition_check(precise::Val, elements::Vector, abtype) -> Tuple{Vector{<:AbstractFloat}, Vector{Vector{Int}}}
 
+Isotope composition of maximal abundance for each subisotopologues with additional floating point error check.
+"""
 function maximal_abundance_elements_composition_check(precise::Val, element_vp, abtype)
     first_proportion = isotopicabundance(precise, element_vp)
     max_proportion, max_vp = maximal_abundance_elements_composition(precise, element_vp)
@@ -210,10 +148,11 @@ function maximal_abundance_elements_composition_check(precise::Val, element_vp, 
     end
     max_proportion, max_vp
 end
-"""
-    distribute_element(update_fn, precise, prev, e, element_precursor, np) -> AbstractFloat
 
-For parent element `e`, distribute isotopes from `element_precursor` into product containing `np` of `e`; then update `prev` using `update_fn`.
+"""
+    distribute_element(update_fn, precise::Val, prev, e::String, element_precursor::Dict, pn::Int) -> AbstractFloat
+
+For parent element `e`, distribute isotopes from `element_precursor` into product containing `pn` of `e`; then update `prev` using `update_fn`.
 """
 function distribute_element(update_fn, precise, prev, e, element_precursor, pn)
     pre = [get(element_precursor, x, 0) for x in elements_isotopes()[e]]
@@ -238,15 +177,15 @@ function distribute_element(update_fn, precise, prev, e, element_precursor, pn)
 end
 
 """
-    maximal_proportion(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0) -> AbstractFloat
+    maximal_proportion(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0) -> AbstractFloat
 
-Estimate maximal product isotopologue of `element_product`, and compute the proportion relative to all possible isotopologues fragmented from `element_precursor`. 
+Estimate maximal product isotopologue of `element_product` fragmented from `element_precursor`, and compute the proportion relative to all possible isotopologues. 
 """
-function maximal_proportion(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+function maximal_proportion(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0)
     for (e, n) in element_product
         prev, _ = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, n)
     end
-    for e in leftover
+    for e in element_name_loss
         prev, _ = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, 0)
     end
     return_abundance(precise, prev)
@@ -264,69 +203,52 @@ function update_maximal_proportion(::Val{false}, p, pre, pro)
 end
 
 """
-    maximal_proportion_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+    maximal_proportion_composition(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0)
 
-Estimate maximal product isotopologue of `element_product`, and compute the vector of numbers of isotopes and proportion relative to all possible isotopologues fragmented from `element_precursor`. 
+Estimate maximal product isotopologue of `element_product` fragmented from `element_precursor`, and compute the vector of numbers of isotopes and proportion relative to all possible isotopologues. 
 """
-function maximal_proportion_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+function maximal_proportion_composition(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0)
     max_vps = Vector{Any}(undef, length(element_product))
     for (i, (e, n)) in enumerate(element_product)
         prev, product = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, n)
         max_vps[i] = product
     end
-    for e in leftover
+    for e in element_name_loss
         prev, _ = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, 0)
     end
     return_abundance(precise, prev), vcat(max_vps...)
 end
 
 """
-    maximal_combination(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0) -> AbstractFloat
+    maximal_combination(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0) -> AbstractFloat
 
-Estimate maximal product isotopologue of `element_product`, and compute the number of combinations. 
+Estimate maximal product isotopologue of `element_product` fragmented from `element_precursor`, and compute the number of combinations. 
 """
-function maximal_combination(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+function maximal_combination(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0)
     for (e, n) in element_product
         prev, _ = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, n)
     end
-    for e in leftover
+    for e in element_name_loss
         prev, _ = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, 0)
     end
     return_abundance(precise, prev)
 end
 
 """
-    maximal_combination_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+    maximal_combination_composition(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0)
 
-Estimate maximal product isotopologue of `element_product`, and compute the vector of numbers of isotopes and the number of combinations. 
+Estimate maximal product isotopologue of `element_product` fragmented from `element_precursor`, and compute the vector of numbers of isotopes and the number of combinations. 
 """
-function maximal_combination_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
+function maximal_combination_composition(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0)
     max_vps = Vector{Any}(undef, length(element_product))
     for (i, (e, n)) in enumerate(element_product)
         prev, product = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, n)
         max_vps[i] = product
     end
-    for e in leftover
+    for e in element_name_loss
         prev, _ = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, 0)
     end
     return_abundance(precise, prev), vcat(max_vps...)
-end
-
-function maximal_combination_elements_composition(precise::Val, element_precursor::Dict, element_product, leftover, prev = 1.0)
-    m = length(element_product)
-    max_vps = Vector{Any}(undef, m + length(leftover))
-    max_cbs = Vector{typeof(return_abundance(precise, big(0.0)))}(undef, m + length(leftover))
-    for (i, (e, n)) in enumerate(element_product)
-        cb, product = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, n)
-        max_vps[i] = product
-        max_cbs[i] = return_abundance(precise, cb)
-    end
-    for (i, e) in enumerate(leftover)
-        cb, product = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, 0)
-        max_vps[i + m] = product
-        max_cbs[i + m] = return_abundance(precise, cb)
-    end
-    max_cbs, max_vps
 end
 
 update_maximal_combination(::Val{true}, p, pre, pro) = 

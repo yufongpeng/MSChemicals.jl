@@ -7,7 +7,7 @@ function isotopologues_elements_ms2(precise::Val, it1, element_precursor_diction
         msfix = get_fixmass(element_product)
         element_dictionary = get_element_dictionary(element_precursor)
         proportion_cutoff = minimum(makecrit_value(crit(threshold), abundance)) * isotopicabundance(element_precursor) / abundance
-        it2 = isotopologues_elements_ms1(precise, element_dictionary, msfix, 1, Total(), proportion_cutoff)
+        it2 = isotopologues_elements_ms1(precise, element_dictionary, msfix, 1, Total(), proportion_cutoff, iter)
         data = map(eachindex(it1.Element)) do i
             (; Element = it2.Element, 
             Mass = it2.Mass .+ mmi(it1.Element[i]), 

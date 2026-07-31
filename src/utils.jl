@@ -1,16 +1,16 @@
 """
-    match_chemical(exp, lib; colexp = :Chemical, collib = :Chemical) -> Table
+    match_chemical(exp, lib; colexp = :Chemical, collib = :Chemical, fnexp = detectedchemical) -> Table
 
 Match chemicals in `exp` (a `Table` or `Vector`) to chemicals in `lib` (a `Table` or `Vector`). 
 The resulting table is `exp` with matched index (column `LibID`), matched chemicals (column `Match`) and other information from `lib`.
 
-If chemicals in `exp` are chemical pairs, the detected chemicals are utilized. See `detectedchemical` for details.
+The exact chemicals being matched are converted from `exp` using `fnexp`.
 """
-function match_chemical(exp, lib; colexp = :Chemical, collib = :Chemical)
+function match_chemical(exp, lib; colexp = :Chemical, collib = :Chemical, fnexp = detectedchemical)
     del = Int[]
     libid = Int[]
     exp = hasproperty(exp, colexp) ? exp : Table(; Chemical = exp)
-    chemical_exp = detectedchemical.(getproperty(exp, colexp))
+    chemical_exp = fnexp.(getproperty(exp, colexp))
     chemical_lib = hasproperty(lib, collib) ? getproperty(lib, collib) : lib
     for i in eachindex(exp)
         j = findfirst(x -> ischemicalequal(x, chemical_exp[i]), chemical_lib)
@@ -414,3 +414,9 @@ function _safe_factorial(n, k)
         factorial(big(n), k)
     end
 end
+
+return_abundance(::Val{true}, x) = x 
+return_abundance(::Val{false}, x) = convert(float(Int), x) 
+
+precise_exp(::Val{true}, y, x) = big(y) ^ x
+precise_exp(::Val{false}, y, x) = y ^ x

@@ -22,7 +22,7 @@ end
 
 function isotopologues_elements_msx(element_vp, msfix, max_vp, proportion_cutoff, precise)
     isempty(element_vp) && return (; Element = [ElementsVector(String[], Int[])], Mass = [mmi(element_vp) + msfix], Abundance = [float(1)])
-    isotopes, els, mass, abv = isotopologues_elements_ms1(precise, element_vp, msfix, 1.0, Max(), rcrit(proportion_cutoff), max_vp...)
+    isotopes, els, mass, abv, _ = isotopologues_elements_single(precise, element_vp, msfix, 1.0, Max(), rcrit(proportion_cutoff), max_vp..., false)
     id = sortperm(abv; rev = true)
     (; Element = [ElementsVector(isotopes, els[i]) for i in id], Mass = mass[id], Abundance = abv[id]) 
 end
