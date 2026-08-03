@@ -44,6 +44,11 @@ plot_spectrum!(mz_range, mztable::Table; abundance = 1, abtype = Max(), threshol
     _plot_spectrum(mz_range, mztable; abundance, abtype, threshold, kwargs..., fn = plot!)
 plot_spectrum!(x; kwargs...) = plot_spectrum!(nothing, x; kwargs...)
 
+function _plot_spectrum(mz_range, mztable::Table; fn = plot, abundance = 1, abtype = Max(), threshold = rcrit(1e-4), kwargs...)
+    ms, ab = plot_spectrum_params(mz_range, mztable; abundance, abtype, threshold)
+    apply_plot_spectrum(ms, ab; fn, kwargs...)
+end
+
 function _plot_spectrum(mz_range, spectrum::Spectrum; fn = plot, deconvolution = false, abundance = 1, abtype = Max(), threshold = rcrit(1e-4), kwargs...)
     ms, ab = plot_spectrum_params(mz_range, spectrum; deconvolution, abundance, abtype, threshold)
     apply_plot_spectrum(ms, ab; fn, kwargs...)

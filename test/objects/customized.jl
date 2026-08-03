@@ -202,6 +202,26 @@ chemicalname(::SN2Acyl; n = 1, kwargs...) = string(n > 1 ? n : "", "Sn2_Acyl")
 chemicalabbr(::SN1Acyl; n = 1, kwargs...) = string(n > 1 ? n : "", "Sn1")
 chemicalabbr(::SN2Acyl; n = 1, kwargs...) = string(n > 1 ? n : "", "Sn2")
 
+struct FC <: AbstractChemical 
+    name::String
+    formula::String
+end
+
+struct FS <: AbstractElementalScheme 
+    name::String
+    formula::String
+end
+
+struct EC <: AbstractChemical 
+    name::String
+    elements::Vector{Pair{String, Int}}
+end
+
+struct ES <: AbstractElementalScheme 
+    name::String
+    elements::Vector{Pair{String, Int}}
+end
+
 @info "Defining custom chemicals and schema"
 
 glc = Glucose("D", 0, 0, 1.5)

@@ -60,24 +60,12 @@ struct ChemicalTransition{T<:AbstractChemicalsSchema} <: AbstractChemical
     transition::Vector{T}
 end
 
-chemicaltype(::AbstractVector{T}) where T = T
-chemicaltype(::ChemicalTransition{T}) where T = T
-chemicaltype(::T) where T = T
-
 function ChemicalTransition(ct...) 
     ChemicalTransition(mapreduce(_transition, vcat, ct))
 end
 
 _transition(x::ChemicalTransition) = chemicaltransition(x)
 _transition(x) = x
-
-push_ct!(v, c::AbstractChemicalsSchema) = push!(v, c)
-function push_ct!(v, c::ChemicalTransition) 
-    for t in c.transition
-        push_ct!(v, t) 
-    end
-    v
-end
 
 """
     Isobars{T<:AbstractChemical, N} <: AbstractChemical

@@ -43,7 +43,7 @@ function reverse_formula(x, ischemical, loss)
         x
     elseif ischemical 
         x 
-    elseif starswith(x, r"[^+-]")
+    elseif startswith(x, r"[^+-]")
         loss ? string("-", replace(x, "+" => "-", "-" => "+")) : string("+", x)
     else
         loss ? replace(x, "+" => "-", "-" => "+") : x

@@ -52,42 +52,6 @@ function seriesisotopomerize(transitions::Vector{<: AbstractChemicalsSchema}, el
 end
 
 """
-    maximal_abundance_composition(precise::Val, elements, prev = 1.0) -> Tuple{<:AbstractFloat, Vector{Int}}
-
-Isotope composition of maximal abundance isotopologue.
-"""
-function maximal_abundance_composition(precise::Val, elements, prev = 1.0)
-    max_vps = Vector(undef, length(elements))
-    for (iem, (e, m)) in enumerate(elements)
-        m += 1
-        xs = elements_isotopes()[e]
-        ns = [floor(Int, m * elements_abundance()[x]) for x in xs]
-        if sum(ns) >= m
-            d = sum(ns) - m + 1
-            i = lastindex(ns)
-            while d > 0
-                if ns[i] > 0
-                    ns[i] -= 1
-                    d -= 1
-                else
-                    i -= 1
-                end
-            end
-        elseif sum(ns) < m - 1
-            d = m - sum(ns) - 1
-            while d > 0
-                _, i = findmax([elements_abundance()[x] / (ns[i] + 1) for (i, x) in enumerate(xs)])
-                ns[i] += 1 
-                d -= 1
-            end
-        end
-        max_vps[iem] = ns
-        prev *= safe_multinomial(precise, ns) * prod(precise_exp(precise, elements_abundance()[y], x) for (x, y) in zip(ns, xs))
-    end
-    return_abundance(precise, prev), vcat(max_vps...)
-end
-
-"""
     maximal_abundance_elements_composition(precise::Val, elements, prev = 1.0) -> Tuple{Vector{<:AbstractFloat}, Vector{Vector{Int}}}
 
 Isotope composition of maximal abundance for each subisotopologues.
@@ -177,32 +141,6 @@ function distribute_element(update_fn, precise, prev, e, element_precursor, pn)
 end
 
 """
-    maximal_proportion(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0) -> AbstractFloat
-
-Estimate maximal product isotopologue of `element_product` fragmented from `element_precursor`, and compute the proportion relative to all possible isotopologues. 
-"""
-function maximal_proportion(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0)
-    for (e, n) in element_product
-        prev, _ = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, n)
-    end
-    for e in element_name_loss
-        prev, _ = distribute_element(update_maximal_proportion, precise, prev, e, element_precursor, 0)
-    end
-    return_abundance(precise, prev)
-end
-
-update_maximal_proportion(::Val{true}, p, pre, pro) = 
-    p * multinomial((big(x) for x in pro)...) / multinomial((big(x) for x in pre)...) * multinomial((big(x) - y for (x, y) in zip(pre, pro))...)
-
-function update_maximal_proportion(::Val{false}, p, pre, pro) 
-    if check_overflow_multinomial(pre...)
-        p * multinomial((big(x) for x in pro)...) / multinomial((big(x) for x in pre)...) * multinomial((big(x) - y for (x, y) in zip(pre, pro))...)
-    else
-        p * multinomial(pro...) / multinomial(pre...) * multinomial((x - y for (x, y) in zip(pre, pro))...)
-    end
-end
-
-"""
     maximal_proportion_composition(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0)
 
 Estimate maximal product isotopologue of `element_product` fragmented from `element_precursor`, and compute the vector of numbers of isotopes and proportion relative to all possible isotopologues. 
@@ -219,19 +157,15 @@ function maximal_proportion_composition(precise::Val, element_precursor::Dict, e
     return_abundance(precise, prev), vcat(max_vps...)
 end
 
-"""
-    maximal_combination(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0) -> AbstractFloat
+update_maximal_proportion(::Val{true}, p, pre, pro) = 
+    p * multinomial((big(x) for x in pro)...) / multinomial((big(x) for x in pre)...) * multinomial((big(x) - y for (x, y) in zip(pre, pro))...)
 
-Estimate maximal product isotopologue of `element_product` fragmented from `element_precursor`, and compute the number of combinations. 
-"""
-function maximal_combination(precise::Val, element_precursor::Dict, element_product, element_name_loss, prev = 1.0)
-    for (e, n) in element_product
-        prev, _ = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, n)
+function update_maximal_proportion(::Val{false}, p, pre, pro) 
+    if check_overflow_multinomial(pre...)
+        p * multinomial((big(x) for x in pro)...) / multinomial((big(x) for x in pre)...) * multinomial((big(x) - y for (x, y) in zip(pre, pro))...)
+    else
+        p * multinomial(pro...) / multinomial(pre...) * multinomial((x - y for (x, y) in zip(pre, pro))...)
     end
-    for e in element_name_loss
-        prev, _ = distribute_element(update_maximal_combination, precise, prev, e, element_precursor, 0)
-    end
-    return_abundance(precise, prev)
 end
 
 """
@@ -403,25 +337,6 @@ function get_element_fixmass(input_element)
     [e => n for (e, n) in input_element if iselement(e)], msfix
 end
 
-# """
-#     element_isotope_pairs(element_dictionary; sort = true)
-
-# Elements and isotopes pairs.
-# """
-# function element_isotope_pairs(element_dictionary; sort = true)
-#     element_isotope_pair = mapreduce(vcat, collect(keys(element_dictionary))) do e
-#         v = get(elements_isotopes(), e, nothing)
-#         isnothing(v) && return Pair{String, String}[]
-#         length(v) < 1 && return Pair{String, String}[]
-#         map(v[begin + 1:end]) do x
-#             (e, x)
-#         end
-#     end
-#     sort ? sort!(element_isotope_pair; by = pair_last_abundance, rev = true) : element_isotope_pair
-# end
-
-# pair_last_abundance(x) = elements_abundance()[last(x)]
-
 """
     element_mass_delta(old_element, new_element) -> AbstractFloat
 
@@ -430,20 +345,10 @@ Mass of `new_element` minus mass of `old_element`.
 element_mass_delta(old_element, new_element) = elements_mass()[new_element] - elements_mass()[old_element]
 
 """
-    parent_mass_delta(element) -> AbstractFloat
-
-Mass of `element` minus mass of parent element of `element`.
-"""
-parent_mass_delta(e) = elements_mass()[e] - elements_mass()[parent_element(e)]
-n_parent_mass_delta(x) = last(x) * parent_mass_delta(first(x))
-
-"""
-    deltammi(elements::Vector{Pair{String, Int}}) -> AbstractFloat
     deltammi(elements::Vector{String}, numbers::Vector{Int}) -> AbstractFloat
 
 Sum of mass of each element in `elements` minus mass of their parent elements.
 """
-deltammi(x) = sum(n_parent_mass_delta, x; init = float(0))
 deltammi(isotopes::Vector{String}, v) = sum((elements_mass()[x] - elements_mass()[parent_element(x)]) * n for (x, n) in zip(isotopes, v))
 
 """

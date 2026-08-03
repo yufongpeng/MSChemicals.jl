@@ -1,5 +1,6 @@
 @testset "Attributes" begin
     @testset "Basic chemicalformula and elements" begin 
+        @test MSC.gain_elements(MSC.dictionary_elements(MSC.ElementsVector(["D"], [5])), Dictionary(["H"], [5])) == MSC.loss_elements(Dict("D" => 5, "H" => 10), MSC.dictionary_elements(Dictionary, MSC.ElementsVector(["H"], [5])))
         @test MSC.gain_elements(["D" => 5], MSC.dictionary_elements(Dictionary, Dictionary(["H"], [5]))) == MSC.unique_elements(MSC.loss_elements(["D" => 5, "H" => 10], MSC.unique_elements(Dictionary, Dict("H" => 5))))
         @test MSC.gain_elements(Dictionary(["D"], [5]), MSC.dictionary_elements(Dict, Dictionary(["H"], [5]))) == MSC.loss_elements(MSC.unique_elements(Dictionary, ["D" => 5, "H" => 10]), MSC.dictionary_elements(Dict, Dict("H" => 5)))
         @test MSC.gain_elements(MSC.unique_elements(Vector{Pair}, Dictionary(["D"], [5])), MSC.unique_elements(Dict, Dictionary(["H"], [5]))) == MSC.unique_elements(Vector{Pair}, MSC.loss_elements(MSC.unique_elements(Dictionary, Dictionary(["D", "H"], [5, 10])), MSC.unique_elements(Vector{Pair}, Dict("H" => 5))))
@@ -9,7 +10,12 @@
         @test chemicalformula(["C" => 2, "H" => 5, "O" => 1, "H" => 1, "C" => -1, "O" => -1]; unique = false, loss = false) == "CH6"
         @test chemicalformula(["C" => -2, "H" => -5, "O" => -1, "H" => -1, "C" => 1, "O" => 1, "F" => 1]; unique = false, ischemical = false, loss = false) == "-C2H5OH+COF"
         @test chemicalformula(MSC.dictionary_elements(Dictionary, ["C" => -2, "H" => -5, "O" => -1, "H" => -1, "C" => 1, "O" => 1, "F" => 1]); ischemical = false, loss = false) == "-CH6+F"
-
+        @test chemicalformula(EC("C6H12", ["C" =>6, "H" => 12])) == chemicalformula(FC("C6H12", "C6H12"))
+        @test chemicalelements(EC("C6H12", ["C" => 6, "H" => 12])) == chemicalelements(FC("C6H12", "C6H12"))
+        @test chemicalformula(ES("-C6H12", ["C" => -6, "H" => -12]); loss = true) == chemicalformula(FS("C6H12", "C6H12"))
+        @test chemicalformula(ES("-C6H12", ["C" => -6, "H" => -12])) == chemicalformula(FS("C6H12", "C6H12"); loss = true)
+        @test chemicalelements(ES("-C6H12", ["C" => -6, "H" => -12])) == chemicalelements(FS("C6H12", "C6H12"); loss = true)
+        @test chemicalname(ES("-C6H12", ["C" => -6, "H" => -12])) == chemicalname(FS("-C6H12", "-C6H12"))
     end
     @testset "getchemicalproperty" begin
         @test getchemicalproperty(cglc, :name, "MISSING") == "Glucose"

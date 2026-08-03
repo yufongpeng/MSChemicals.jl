@@ -22,6 +22,8 @@
     @test @test_noerror plot_window!(MSC.TukeyWindow(0.2))
     @test @test_noerror plot_resolving_power((0, 1000), FTICR())
     @test @test_noerror plot_resolving_power!((0, 1000), Orbitrap())
+    @test @test_noerror plot_resolving_power(QuadrupoleIonTrap((0, 1000)))
+    @test @test_noerror plot_resolving_power!(LinearIonTrap((0, 1000)))
 end
 
 @testset "Spectrum" begin 
@@ -29,6 +31,9 @@ end
     @test isapprox(pt2.Abundance2[1], 20000)
     @test @test_noerror plot_spectrum((948.1, 951.5), spec2)
     @test @test_noerror plot_spectrum!((948.1, 951.5), spec2; deconvolution = true)
+    @test @test_noerror plot_spectrum(spec2)
+    @test @test_noerror plot_spectrum!(spec2)
+    @test @test_noerror plot_spectrum!(spec2.table)
 end
 
 @testset "CoelutingIsobars" begin 
