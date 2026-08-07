@@ -59,11 +59,11 @@ function Ionization(mztable::Table; adduction = AdductIon, threading = nothing, 
         t = Vector{Table}(undef, length(id))
         Threads.@threads for k in eachindex(t)
             i, j = id[k]
-            t[k] = Isotopologues(ionize(adduction, chemical[i]; adduct[i][j]...); kwargs..., id = (k, ), abundance = abundance[i] * proportion[i][j], threshold, iter = true)
+            t[k] = Isotopologues(ionize(adduction, chemical[i]; adduct[i][j]...); kwargs..., id = (k, ), abundance = abundance[i] * proportion[i][j], threshold, iter = true, sort = true)
         end
         tbl = Table(; (p => ChainedVector(getproperty.(t, p)) for p in propertynames(t[1]))...)
     else
-        t = [Isotopologues(ionize(adduction, chemical[i]; adduct[i][j]...); kwargs..., id = (k, ), abundance = abundance[i] * proportion[i][j], threshold, iter = true) for (k, (i, j)) in enumerate(id)]
+        t = [Isotopologues(ionize(adduction, chemical[i]; adduct[i][j]...); kwargs..., id = (k, ), abundance = abundance[i] * proportion[i][j], threshold, iter = true, sort = true) for (k, (i, j)) in enumerate(id)]
         tbl = Table(; (p => ChainedVector(getproperty.(t, p)) for p in propertynames(t[1]))...)
     end
     colab = lastcolnum(propertynames(tbl), "Abundance"; error = false)
@@ -338,7 +338,8 @@ function Fragmentation(producttable::Table, mztable::Table; chemicalparser = Che
                 product = producttable.Product[pid],
                 proportion = producttable.Proportion[pid],
                 transmission = sum(producttable.Proportion[pid]),
-                iter = true
+                iter = true,
+                sort = true
             )
         end
         Table(; (p => ChainedVector(getproperty.(t, p)) for p in propertynames(first(t)))...)
@@ -353,7 +354,8 @@ function Fragmentation(producttable::Table, mztable::Table; chemicalparser = Che
                 product = producttable.Product[pid],
                 proportion = producttable.Proportion[pid],
                 transmission = sum(producttable.Proportion[pid]),
-                iter = true
+                iter = true,
+                sort = true
             )
         end
         Table(; (p => ChainedVector(getproperty.(t, p)) for p in propertynames(first(t)))...)
