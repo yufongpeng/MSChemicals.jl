@@ -17,7 +17,7 @@ Charged chemicals formed in MS with a specific adduct or neutral loss (adduct io
 
     Chemical(name::AbstractString, formula::String; property...)
 
-    Chemical(name::String, elements::Vector{Pair{String, Int}}, property::Vector{Pair{Symbol, Any}})
+    Chemical(name::AbstractString, elements::Vector{Pair{String, Int}}, property::Vector{Pair{Symbol, Any}})
     ```
 
 2. `FormulaChemical`: unstructured chemicals using the formula as the name
@@ -25,7 +25,7 @@ Charged chemicals formed in MS with a specific adduct or neutral loss (adduct io
     ```julia
     FormulaChemical(elements::Vector{Pair{String, Int}}; property...)
 
-    FormulaChemical(formula::String; property...)
+    FormulaChemical(formula::AbstractString; property...)
 
     FormulaChemical(elements::Vector{Pair{String, Int}}, property::Vector{Pair{Symbol, Any}})
     ```
@@ -55,9 +55,9 @@ Charged chemicals formed in MS with a specific adduct or neutral loss (adduct io
 6. `Isotopomers`: multiple chemicals differing by isotopic replacement location
 
     ```julia
-    Isotopomers(parent::AbstractChemical, isotopes::Vector{Pair{String, Int}})
+    Isotopomers(parent::AbstractChemical, isotopes::ElementsVector)
 
-    Isotopomers(parent::AbstractChemical, fullformula::String)
+    Isotopomers(parent::AbstractChemical, fullformula::AbstractString)
 
     Isotopomers(parent::AbstractChemical, fullelements::Dictionary)
 
@@ -67,7 +67,7 @@ Charged chemicals formed in MS with a specific adduct or neutral loss (adduct io
 7. `Groupedisotopomers`: isotopomers grouped by isotopomer state
 
     ```julia
-    Groupedisotopomers(parent::AbstractChemicalsSchema, state::Int, isotope::String, isotopes::Vector{Vector{Pair{String, Int}}}, abundance::Vector)
+    Groupedisotopomers(parent::AbstractChemical, state::Int, isotope::String, isotopes::Vector{Vector{Pair{String, Int}}}, abundance::Vector)
     ```
 
 Users can parse chemical expressions and pairs using `parse_chemical`.
@@ -139,15 +139,15 @@ set_elements!(element, mass, abundance; minor_name = nothing)
 to add new elements with mass and natural abundances for all isotopes.
 Customized minor element names (`minor_name`) are optional.
 
-# AbstractSchema
+# AbstractScheme
 
-Any chemical gain or loss is an instance of `AbstractSchema`. This type has three abstract subtypes:
+Any chemical gain, loss, and fragmentation scheme is an instance of `AbstractScheme`. This type has three abstract subtypes:
 
 1. `AbstractElementalScheme`: a scheme containing elemental information, including isotopic replacement.
 2. `AbstractStructuralScheme`: a scheme containing only structural information. This is useful for defining rule-based fragmentation.
 3. `AbstractCompleteScheme`: a scheme containing both elemental and structural information. It is the final scheme stored in `AdductIon`.
 
-In addition to single schemes, multiple schemas are wrapped in `ChemicalSchema`.
+In addition to single scheme, multiple schema are wrapped in `ChemicalSchema`.
 
 Predefined chemicals used in adducts:
 

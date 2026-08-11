@@ -124,7 +124,7 @@ function addminusisotopes!(
         cne = ne
         backward_max_abundance = max(prev_abundance, next_abundance)
         while cni > 0
-            new_abundance = update_abundance(precise, abundance, i, e, cni, cne, 1)
+            new_abundance = update_abundance(precise, abundance, i, e, cni, cne)
             if new_abundance >= threshold
                 next = (true, true)
             elseif new_abundance >= abundance
@@ -175,7 +175,7 @@ function addminusisotopes!(
         cne = ne
         forward_max_abundance = max(prev_abundance, next_abundance)
         while cne > 0
-            new_abundance = update_abundance(precise, abundance, e, i, cne, cni, 1)
+            new_abundance = update_abundance(precise, abundance, e, i, cne, cni)
             if new_abundance >= threshold
                 next = (true, true)
             elseif new_abundance >= abundance
@@ -258,7 +258,7 @@ function addminusisotopes_iter!(
         cne = ne
         backward_max_abundance = max(prev_abundance, next_abundance)
         while cni > 0
-            new_abundance = update_abundance(precise, abundance, i, e, cni, cne, 1)
+            new_abundance = update_abundance(precise, abundance, i, e, cni, cne)
             if new_abundance >= threshold
                 next = (true, true)
             elseif new_abundance >= abundance
@@ -269,7 +269,7 @@ function addminusisotopes_iter!(
             else
                 break
             end
-            preab = update_inverse_proportion(precise, preab, cni, cne, 1)
+            preab = update_inverse_proportion(precise, preab, cni, cne)
             cni -= 1
             cne += 1
             mass += element_mass_delta(i, e) / abs_charge
@@ -313,7 +313,7 @@ function addminusisotopes_iter!(
         cne = ne
         forward_max_abundance = max(prev_abundance, next_abundance)
         while cne > 0
-            new_abundance = update_abundance(precise, abundance, e, i, cne, cni, 1)
+            new_abundance = update_abundance(precise, abundance, e, i, cne, cni)
             if new_abundance >= threshold
                 next = (true, true)
             elseif new_abundance >= abundance
@@ -324,7 +324,7 @@ function addminusisotopes_iter!(
             else
                 break
             end
-            preab = update_inverse_proportion(precise, preab, cne, cni, 1)
+            preab = update_inverse_proportion(precise, preab, cne, cni)
             cni += 1
             cne -= 1
             mass += element_mass_delta(e, i) / abs_charge

@@ -7,10 +7,14 @@
     for q in qa 
         dw = MSC.discrete_window(q, [500.0], 0.0001, 1, 0.0001)
         @test isapprox(0.0001 * (findlast(>=(0.5), first(dw)) - findfirst(>=(0.5), first(dw))), MSC.fwhm_mz(q, 500.0); rtol = 1e-3)
+        @test isapprox(q.window(500.0, MSC.window_parameter(q, 500.0)...), 1.0)
+        @test isapprox(q.window(500.35, MSC.window_parameter(q, 500.0)...), 0.5) || isapprox(q.window(500.7, MSC.window_parameter(q, 500.0)...), 0.5) || isapprox(q.window(500.35, MSC.window_parameter(q, 500.0)...), 0.0)
     end
     for q in msa 
         dw = MSC.discrete_window(q, [500.0], 0.0001, 1, 0.0001)
-        isapprox(0.0001 * (findlast(>=(0.5), first(dw)) - findfirst(>=(0.5), first(dw))), MSC.fwhm_mz(q, 500.0); rtol = 1e-3)
+        @test isapprox(0.0001 * (findlast(>=(0.5), first(dw)) - findfirst(>=(0.5), first(dw))), MSC.fwhm_mz(q, 500.0); rtol = 1e-3)
+        @test isapprox(q.window(500.0, MSC.window_parameter(q, 500.0)...), 1.0)
+        @test isapprox(q.window(500.5, MSC.window_parameter(q, 500.0)...), 0.5) || isapprox(q.window(500.5, MSC.window_parameter(q, 500.0)...), 0.0)
     end
     for (ms, nm) in [Quadrupole() => "Quadrupole", QIT() => "Quadrupole Ion Trap", LIT() => "Linear Ion Trap", TOF() => "TOF", Orbitrap() => "Orbitrap", FTICR() => "FTICR"]
         @test MSC.msanalyzer_name(ms) == nm

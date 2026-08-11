@@ -302,8 +302,8 @@ function rec_exchangeisotopes!(
         mass = prev_mass
         backward_max_proportion = max(prev_proportion, next_proportion)
         while pis > 0 && rel >= 0
-            new_proportion = update_proportion1(precise, proportion, rel, ris)
-            new_proportion = update_proportion1(precise, new_proportion, pis, pel)
+            new_proportion = update_proportion(precise, proportion, rel, ris)
+            new_proportion = update_proportion(precise, new_proportion, pis, pel)
             if new_proportion >= threshold
                 next = (true, true)
             elseif new_proportion >= proportion
@@ -358,8 +358,8 @@ function rec_exchangeisotopes!(
         mass = prev_mass
         forward_max_proportion = max(prev_proportion, next_proportion)
         while pel > 0 && ris >= 0
-            new_proportion = update_proportion1(precise, proportion, pel, pis)
-            new_proportion = update_proportion1(precise, new_proportion, ris, rel)
+            new_proportion = update_proportion(precise, proportion, pel, pis)
+            new_proportion = update_proportion(precise, new_proportion, ris, rel)
             if new_proportion >= threshold
                 next = (true, true)
             elseif new_proportion >= proportion
@@ -465,8 +465,8 @@ function rec_exchangeisotopes_iter!(
         mass = prev_mass
         backward_max_proportion = max(prev_proportion, next_proportion)
         while pis > 0 && rel >= 0
-            new_proportion = update_proportion1(precise, proportion, rel, ris)
-            new_proportion = update_proportion1(precise, new_proportion, pis, pel)
+            new_proportion = update_proportion(precise, proportion, rel, ris)
+            new_proportion = update_proportion(precise, new_proportion, pis, pel)
             if new_proportion >= threshold
                 next = (true, true)
             elseif new_proportion >= proportion
@@ -477,7 +477,7 @@ function rec_exchangeisotopes_iter!(
             else
                 break
             end
-            preab = update_inverse_proportion1(precise, preab, pis, pel)
+            preab = update_inverse_proportion(precise, preab, pis, pel)
             pis -= 1
             pel += 1
             ris += 1 
@@ -525,8 +525,8 @@ function rec_exchangeisotopes_iter!(
         mass = prev_mass
         forward_max_proportion = max(prev_proportion, next_proportion)
         while pel > 0 && ris >= 0
-            new_proportion = update_proportion1(precise, proportion, pel, pis)
-            new_proportion = update_proportion1(precise, new_proportion, ris, rel)
+            new_proportion = update_proportion(precise, proportion, pel, pis)
+            new_proportion = update_proportion(precise, new_proportion, ris, rel)
             if new_proportion >= threshold
                 next = (true, true)
             elseif new_proportion >= proportion
@@ -537,7 +537,7 @@ function rec_exchangeisotopes_iter!(
             else
                 break
             end
-            preab = update_inverse_proportion1(precise, preab, pel, pis)
+            preab = update_inverse_proportion(precise, preab, pel, pis)
             pis += 1
             pel -= 1
             ris -= 1 

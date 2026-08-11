@@ -359,81 +359,35 @@ Mass of `elements` and `numbers`.
 nmmi(isotopes::Vector{String}, v) = sum(elements_mass()[x] * n for (x, n) in zip(isotopes, v))
 
 """
-    update_abundance(precise::Val, prev_abundance, old_element, new_element, nold, nnew, n) -> AbstractFloat
+    update_abundance(precise::Val, prev_abundance, old_element, new_element, nold, nnew) -> AbstractFloat
 
-Update of `prev_abundance` after `n` `old_element` replaced by `new_element`. `nold` and `nnew` are number of elements before replacing.
+Update of `prev_abundance` after one `old_element` replaced by `new_element`. `nold` and `nnew` are number of elements before replacing.
 """
-function update_abundance(precise::Val, prev_abundance::T, old_element, new_element, nold, nnew, delta) where T
+function update_abundance(precise::Val, prev_abundance::T, old_element, new_element, nold, nnew) where T
     x = get(elements_abundance(), old_element, one(T))
     y = get(elements_abundance(), new_element, one(T))
     if (x == one(T) || y == one(T))
         prev_abundance
-    elseif delta == 1 
+    else 
         update_abundance1(precise, prev_abundance, x, y, nold, nnew)
-    else
-        update_abundancen(precise, prev_abundance, x, y, nold, nnew, delta)
     end
 end
 
 update_abundance1(::Val{true}, prev_abundance, x, y, nold, nnew) = prev_abundance * (big(nold) / (nnew + 1)) * (big(y) / x)
 update_abundance1(::Val{false}, prev_abundance, x, y, nold, nnew) = prev_abundance * (nold / (nnew + 1)) * (y / x)
-update_abundancen(::Val{true}, prev_abundance, x, y, nold, nnew, delta) = 
-    prev_abundance * (factorial(big(nold), nold - delta) / factorial(big(nnew + delta), nnew)) * (big(y) / x) ^ delta
-function update_abundancen(::Val{false}, prev_abundance, x, y, nold, nnew, delta) 
-    if (nold > nnew + delta ? check_overflow_factorial(nold, nold - delta) : check_overflow_factorial(nnew + delta, nnew))
-        prev_abundance *= factorial(big(nold), nold - delta) / factorial(big(nnew + delta), nnew)
-    else
-        prev_abundance *= safe_factorial(nold, nold - delta) / safe_factorial(nnew + delta, nnew) 
-    end
-    convert(float(Int), prev_abundance * (y / x) ^ delta)
-end
 
 """
-    update_proportion(precise::Val, prev_proportion, nold, nnew, n) -> AbstractFloat
+    update_proportion(precise::Val, prev_proportion, nold, nnew) -> AbstractFloat
     
-Update of `prev_proportion` after `n` elements replacing. `nold` and `nnew` are number of elements before replacing.
+Update of `prev_proportion` after one element replacing. `nold` and `nnew` are number of elements before replacing.
 """
-function update_proportion(precise::Val, prev_proportion, nold, nnew, delta) 
-    if delta == 1
-        update_proportion1(precise, prev_proportion, nold, nnew)
-    else
-        update_proportionn(precise, prev_proportion, nold, nnew, delta)
-    end
-end
-
-update_proportion1(::Val{true}, prev_proportion, nold, nnew) = prev_proportion * (big(nold) / (nnew + 1)) 
-update_proportion1(::Val{false}, prev_proportion, nold, nnew) = prev_proportion * (nold / (nnew + 1)) 
-update_proportionn(::Val{true}, prev_proportion, nold, nnew, delta) = 
-    prev_proportion * (factorial(big(nold), nold - delta) / factorial(big(nnew + delta), nnew)) 
-function update_proportionn(::Val{false}, prev_proportion, nold, nnew, delta) 
-    if (nold > nnew + delta ? check_overflow_factorial(nold, nold - delta) : check_overflow_factorial(nnew + delta, nnew))
-        convert(float(Int), prev_proportion * (factorial(big(nold), nold - delta) / factorial(big(nnew + delta), nnew)))
-    else
-        convert(float(Int), prev_proportion * (safe_factorial(nold, nold - delta) / safe_factorial(nnew + delta, nnew)))
-    end
-end
+update_proportion(::Val{true}, prev_proportion, nold, nnew) = prev_proportion * (big(nold) / (nnew + 1)) 
+update_proportion(::Val{false}, prev_proportion, nold, nnew) = prev_proportion * (nold / (nnew + 1)) 
 
 """
-    update_inverse_proportion(precise::Val, prev_inverse_proportion, nold, nnew, delta) -> AbstractFloat
+    update_inverse_proportion(precise::Val, prev_inverse_proportion, nold, nnew) -> AbstractFloat
 
-Update of `prev_inverse_proportion` after `n` elements replacing. `nold` and `nnew` are number of elements before replacing.
+Update of `prev_inverse_proportion` after one element replacing. `nold` and `nnew` are number of elements before replacing.
 """
-function update_inverse_proportion(precise::Val, prev_proportion, nold, nnew, delta)
-    if delta == 1 
-        update_inverse_proportion1(precise, prev_proportion, nold, nnew)
-    else
-        update_inverse_proportionn(precise, prev_proportion, nold, nnew, delta)
-    end
-end
-
-update_inverse_proportion1(::Val{true}, prev_proportion, nold, nnew) = prev_proportion * (big(nnew + 1) / nold) 
-update_inverse_proportion1(::Val{false}, prev_proportion, nold, nnew) = prev_proportion * ((nnew + 1) / nold) 
-update_inverse_proportionn(::Val{true}, prev_proportion, nold, nnew, delta) = 
-    prev_proportion * (factorial(big(nnew + delta), nnew) / factorial(big(nold), nold - delta)) 
-function update_inverse_proportionn(::Val{false}, prev_proportion, nold, nnew, delta) 
-    if (nold > nnew + delta ? check_overflow_factorial(nold, nold - delta) : check_overflow_factorial(nnew + delta, nnew))
-        convert(float(Int), prev_proportion * (factorial(big(nnew + delta), nnew) / factorial(big(nold), nold - delta)))
-    else
-        convert(float(Int), prev_proportion * (safe_factorial(nnew + delta, nnew) / safe_factorial(nold, nold - delta)))
-    end
-end
+update_inverse_proportion(::Val{true}, prev_proportion, nold, nnew) = prev_proportion * (big(nnew + 1) / nold) 
+update_inverse_proportion(::Val{false}, prev_proportion, nold, nnew) = prev_proportion * ((nnew + 1) / nold) 

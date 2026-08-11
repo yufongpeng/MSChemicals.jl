@@ -362,8 +362,19 @@ Determine if `x` is an isotope (including element).
 """
 isisotope(x::AbstractString) = haskey(elements_mass(), x)
 
+"""
+    ismajor(x::AbstractString) -> Bool
+
+Determine if `x` is the major isotope.
+"""
 ismajor(x::AbstractString) = x == major_isotope(x)
-isminor(x::AbstractString) = x == minor_isotope(x)
+
+"""
+    isminor(x::AbstractString, i::Int = 1) -> Bool
+
+Determine if `x` is the `i`th minor isotope.
+"""
+isminor(x::AbstractString, i::Int = 1) = x == minor_isotope(x, i)
 
 """
     parent_element(x::AbstractString) -> String
