@@ -5,12 +5,19 @@ Common name of measurement `fn` with or without `error`.
 """
 measure_name(fn) = repr(fn)
 measure_name(fn::typeof(retentiontime)) = "RT"
+measure_name(fn::typeof(mz)) = "MZ"
+measure_name(fn::typeof(mmi)) = "Mmi"
+measure_name(fn::typeof(molarmass)) = "M"
+measure_name(fn::typeof(charge)) = "Z"
 measure_name(s::AbstractString) = string(s)
 measure_name(s::Symbol) = string(s)
 measure_name(fn, error::typeof(value_error)) = string("Δ", measure_name(fn))
 measure_name(fn, error::typeof(relative_error)) = string("Δ", measure_name(fn), "/", measure_name(fn))
+measure_name(fn, error::typeof(relative_error_mean)) = string("Δ", measure_name(fn), "/", measure_name(fn))
 measure_name(fn, error::typeof(percentage_error)) = string("Δ", measure_name(fn), "/", measure_name(fn), "(%)")
+measure_name(fn, error::typeof(percentage_error_mean)) = string("Δ", measure_name(fn), "/", measure_name(fn), "(%)")
 measure_name(fn, error::typeof(ppm_error)) = string("Δ", measure_name(fn), "/", measure_name(fn), "(ppm)")
+measure_name(fn, error::typeof(ppm_error_mean)) = string("Δ", measure_name(fn), "/", measure_name(fn), "(ppm)")
 
 """
     measure_error(fn) -> Vector{<: Function}
@@ -128,7 +135,7 @@ end
     
 function (f::GaussianTailedUniformWindow)(x, μ::S, fwhm::T) where {S, T}
     p = abs(x - μ) 
-    p == 0 && return zero(promote_type(float(S), float(T)))
+    p == 0 && return one(promote_type(float(S), float(T)))
     taperwidth = min(f.taperwidth, fwhm)
     plateau = fwhm - taperwidth
     if plateau == 0

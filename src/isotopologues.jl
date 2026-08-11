@@ -63,11 +63,11 @@ function Isotopologues_ms1(precise::Val, input_chemical::AbstractChemical;
     it = isotopologues_elements_ms1(precise, input_chemical, chemicalelements(input_chemical), first(abundance), abtype, threshold, iter, sort)
     net_charge = charge(input_chemical)
     if iter && net_charge == 0 
-        (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, Mass1 = it.Mass, Abundance1 = it.Abundance, Preab = it.Preab)
+        (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, Mmi1 = it.Mass, Abundance1 = it.Abundance, Preab = it.Preab)
     elseif iter
         (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, MZ1 = it.Mass, Abundance1 = it.Abundance, Preab = it.Preab)
     elseif net_charge == 0 
-        (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, Mass1 = it.Mass, Abundance1 = it.Abundance)
+        (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, Mmi1 = it.Mass, Abundance1 = it.Abundance)
     else
         (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, MZ1 = it.Mass, Abundance1 = it.Abundance)
     end
@@ -135,7 +135,7 @@ function Isotopologues(ct::ChemicalTransition;
     net_charge = charge.(precursor)
     abs_charge = [max(1, abs(x)) for x in net_charge]
     colab = Symbol(string("Abundance", length(precursor_info))) 
-    colmz = all(==(0), net_charge) ? [Symbol(string("Mass", i)) for i in eachindex(precursor_info)] : [Symbol(string("MZ", i)) for i in eachindex(precursor_info)]
+    colmz = all(==(0), net_charge) ? [Symbol(string("Mmi", i)) for i in eachindex(precursor_info)] : [Symbol(string("MZ", i)) for i in eachindex(precursor_info)]
     Table(; 
         ID = [id for _ in eachindex(chemical)], 
         Chemical = chemical, 
@@ -355,24 +355,6 @@ function TandemIsotopologues_precursor(precise::Val, precursor_info, id, abundan
         ip += 1
         colab = Symbol(string("Abundance", ip - 1))
         element_precursor_dictionary = get_element_dictionary(last(precursor_info[ip - 1]))
-        # @time el = map(precursor_table.Chemical) do c
-        #     first_element_precursor_dictionary = copy(element_precursor_dictionary)
-        #     for (k, v) in detectedisotopes(c)
-        #         p = parent_element(k)
-        #         if p != k
-        #             get!(first_element_precursor_dictionary, k, 0)
-        #             first_element_precursor_dictionary[k] += v
-        #             get!(first_element_precursor_dictionary, p, 0)
-        #             first_element_precursor_dictionary[p] -= v
-        #         end
-        #     end
-        #     # for (k, v) in first_element_precursor_dictionary
-        #     #     if iselement(k) 
-        #     #         first_element_precursor_dictionary[major_isotope(k)] = v 
-        #     #     end
-        #     # end
-        #     first_element_precursor_dictionary
-        # end
         major_precursor_dictionary = Dict(major_isotope(k) => v for (k, v) in element_precursor_dictionary)
         el = map(precursor_table.Chemical) do c
             major_minor_precursor_dictionary = copy(major_precursor_dictionary)
@@ -414,13 +396,13 @@ function TandemIsotopologues_product(precise::Val, precursor_table, itp, element
     end
     if net_charge == 0 
         mspre = map(1:nms - 1) do i 
-            s = Symbol(string("Mass", i))
+            s = Symbol(string("Mmi", i))
             s => [getproperty(precursor_table, s)[id] for id in it.ID]
         end
         if iter 
-            (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, mspre..., [Symbol(string("Mass", nms)) => it.Mass]..., abpre..., [Symbol(string("Abundance", nms)) => it.Abundance]..., Preab = it.Preab)
+            (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, mspre..., [Symbol(string("Mmi", nms)) => it.Mass]..., abpre..., [Symbol(string("Abundance", nms)) => it.Abundance]..., Preab = it.Preab)
         else
-            (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, mspre..., [Symbol(string("Mass", nms)) => it.Mass]..., abpre..., [Symbol(string("Abundance", nms)) => it.Abundance]...) 
+            (; ID = [id for _ in eachindex(it.Chemical)], Chemical = it.Chemical, mspre..., [Symbol(string("Mmi", nms)) => it.Mass]..., abpre..., [Symbol(string("Abundance", nms)) => it.Abundance]...) 
         end
     else
         mspre = map(1:nms - 1) do i 
