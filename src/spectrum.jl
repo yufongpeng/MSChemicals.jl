@@ -126,7 +126,7 @@ function MSScan(msanalyzer::AbstractMSAnalyzer, mztable::Table; min_bin_fwhm = 5
     convolution_vector = [a .* k for (a, k) in zip(ab_vector, kernels)]
     ibins .+= Int(length(first(kernels))) ÷ 2 + 1
     spectrum = zeros(eltype(ab_vector), last(ibins) + Int(length(last(kernels))) ÷ 2)
-    for (c, i) in zip(convolution_vector, ibins)
+    @inbounds for (c, i) in zip(convolution_vector, ibins)
         convolution_offset = Int(length(c) ÷ 2)
         spectrum[i - convolution_offset:i + convolution_offset] .+= c 
     end
@@ -203,14 +203,12 @@ function _Isolation(msanalyzer::AbstractMSAnalyzer, mztable::Table, colmz::Symbo
     isempty(params) && return mztable
     isempty(mztable) && return mztable
     ab = map(mztable) do r
-        getproperty(r, colab) * maximum([msanalyzer.window(getproperty(r, colmz), param...) for param in params])
+        getproperty(r, colab) * maximum(msanalyzer.window(getproperty(r, colmz), param...) for param in params)
     end
     tab = minimum(makecrit_value(crit(threshold), maximum(ab)))
     id = findall(>(tab), ab)
     Table(mztable; [colab => ab]...)[id]
 end
-
-@deprecate TargetIon Isolation 
 
 """
     SelectedIonMonitor(transitiontable, mztable; threading = nothing, threshold = rcrit(1e-4)) -> Table
@@ -394,8 +392,7 @@ function peak_table(mztable::Table, spectrum, initial_mass, binsize, nbin_multip
     gmztable = group(getproperty(:Max_bin), mztable)
     tuples = map(pairs(gmztable)) do (ibin, smztable) 
         cab = map(smztable) do r 
-            delta = ibin - r.Bin_id
-            r.Convolution[c + delta]
+            r.Convolution[c + ibin - r.Bin_id]
         end
         (; Chemical = Isobars(getproperty(smztable, :Chemical), cab), MZ = initial_mass + (ibin - 1) * binsize, Abundance = spectrum[ibin])
     end
@@ -407,7 +404,7 @@ function peak_table(mztable::Table, spectrum, initial_mass, binsize, nbin_multip
 end
 
 function peak_table(transitiontable::Table; groupedisotopomers = true, isotope = "[13C]")
-    :MZTable in propertynames(transitiontable) || throw(ArgumentError("No column`MZTable` in transitiontable"))
+    :MZTable in propertynames(transitiontable) || throw(ArgumentError("No column `MZTable` in transitiontable"))
     id = findall(!isempty, transitiontable.MZTable)
     mztables = @view transitiontable.MZTable[id]
     if groupedisotopomers

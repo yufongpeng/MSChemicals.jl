@@ -45,18 +45,15 @@ end
 function isotopologues_elements_single(precise::Val, element_vp::Vector, msfix, abundance, abtype, threshold, max_proportion, max_vp::Vector, iter, abs_charge)
     total, abundance_cutoff, proportion_cutoff = abundance_threshold_vec(abtype, abundance, threshold, max_proportion, element_vp)
     max_proportion[begin] *= total
-    els = Vector{Int}[]
-    abv = typeof(return_abundance(precise, big(0.0)))[]
-    mass = float(Int)[]
     if iter 
-        tbls = map(subisotopologues_iter, element_vp, [1.0 for _ in eachindex(element_vp)], max_vp, [proportion_cutoff for _ in eachindex(element_vp)], [precise for _ in eachindex(element_vp)], [abs_charge for _ in eachindex(element_vp)])
-        preab = float(Int)[]
-        combinesubisotopologues_iter!(els, mass, abv, preab, tbls, abundance_cutoff, Int[],  msfix, prod(max_proportion), 1.0, 1)
+        fn_sub = subisotopologues_iter
+        fn_comb = combinesubisotopologues_iter
     else
-        tbls = map(subisotopologues, element_vp, [1.0 for _ in eachindex(element_vp)], max_vp, [proportion_cutoff for _ in eachindex(element_vp)], [precise for _ in eachindex(element_vp)], [abs_charge for _ in eachindex(element_vp)])
-        preab = nothing
-        combinesubisotopologues!(els, mass, abv, tbls, abundance_cutoff, Int[], msfix, prod(max_proportion), 1)
+        fn_sub = subisotopologues
+        fn_comb = combinesubisotopologues
     end
+    tbls = map(fn_sub, element_vp, [1.0 for _ in eachindex(element_vp)], max_vp, [proportion_cutoff for _ in eachindex(element_vp)], [precise for _ in eachindex(element_vp)], [abs_charge for _ in eachindex(element_vp)])
+    els, mass, abv, preab = fn_comb(precise, tbls, abundance_cutoff, msfix, prod(max_proportion), 1.0)
     vcat((tbl.Isotope for tbl in tbls)...), els, mass, abv, preab
 end
 
@@ -365,49 +362,153 @@ end
 
 # ==========================================================================================================================
 # Low level combination
-function combinesubisotopologues!(els, mass, abv, tbls, abundance_cutoff, el, ms, maxab, eln)
-    eln == lastindex(tbls) && return combinesubisotopologues_end!(els, mass, abv, tbls, abundance_cutoff, el, ms, maxab)
-    i = 0
-    @inbounds while i < length(tbls[eln].Abundance)
-        combinesubisotopologues!(els, mass, abv, tbls, abundance_cutoff, vcat(el, tbls[eln].Number[i + 1]), ms + tbls[eln].Mass[i + 1], maxab * tbls[eln].Abundance[i + 1], eln + 1) || break
-        i += 1
+function combinesubisotopologues(precise, tbls, abundance_cutoff, ms, maxab, preab)
+    els = Vector{Int}[]
+    mass = float(Int)[]
+    abv = typeof(return_abundance(precise, big(0.0)))[]
+    el = vcat((first(tbl.Number) for tbl in tbls)...)
+    nisotopes = cumsum(length(tbl.Number[begin]) for tbl in tbls)
+    pushfirst!(nisotopes, 0)
+    tbl = tbls[end]
+    @inbounds for i in eachindex(tbl.Abundance)
+        push!(els, copy(el))
+        els[end][nisotopes[end - 1] + 1:end] .= tbl.Number[i]
+        push!(abv, maxab * tbl.Abundance[i])
+        push!(mass, ms + tbl.Mass[i])
     end
-    i > 0
+    ci = length(tbl.Abundance)
+    @inbounds for eln in (lastindex(tbls) - 1):-1:firstindex(tbls)
+        ni = ci
+        i = 1
+        tbl = tbls[eln]
+        while i < length(tbl.Abundance)
+            i += 1
+            for j in 1:ci
+                if abv[j] <= 0 
+                    continue
+                else
+                    ab = abv[j] * tbl.Abundance[i]
+                end
+                if ab < abundance_cutoff 
+                    continue
+                else
+                    ni += 1
+                    push!(els, copy(els[j]))
+                    els[ni][nisotopes[eln] + 1:nisotopes[eln + 1]] .= tbl.Number[i]
+                    push!(abv, ab)
+                    push!(mass, mass[j] + tbl.Mass[i])
+                end
+            end
+        end
+        for j in 1:ci
+            mass[j] += tbls[eln].Mass[begin]
+        end
+        ci = ni
+    end
+    els, mass, abv, nothing
 end
 
-function combinesubisotopologues_end!(els, mass, abv, tbls, abundance_cutoff, el, ms, maxab)
-    i = 0
-    @inbounds while i < length(tbls[end].Abundance)
-        ab = maxab * tbls[end].Abundance[i + 1]
-        ab < abundance_cutoff && break
-        i += 1
-        push!(els, vcat(el, tbls[end].Number[i]))
-        push!(abv, ab)
-        push!(mass, ms + tbls[end].Mass[i])
+function combinesubisotopologues_iter(precise, tbls, abundance_cutoff, ms, maxab, preab)
+    els = Vector{Int}[]
+    mass = float(Int)[]
+    abv = typeof(return_abundance(precise, big(0.0)))[]
+    preabv = typeof(return_abundance(precise, big(0.0)))[]
+    el = vcat((first(tbl.Number) for tbl in tbls)...)
+    nisotopes = cumsum(length(tbl.Number[begin]) for tbl in tbls)
+    pushfirst!(nisotopes, 0)
+    tbl = tbls[end]
+    @inbounds for i in eachindex(tbl.Abundance)
+        push!(els, copy(el))
+        els[end][nisotopes[end - 1] + 1:end] .= tbl.Number[i]
+        push!(abv, maxab * tbl.Abundance[i])
+        push!(preabv, preab * tbl.Preab[i])
+        push!(mass, ms + tbl.Mass[i])
     end
-    i > 0
+    ci = length(tbl.Abundance)
+    @inbounds for eln in (lastindex(tbls) - 1):-1:firstindex(tbls)
+        ni = ci
+        i = 1
+        tbl = tbls[eln]
+        while i < length(tbl.Abundance)
+            i += 1
+            for j in 1:ci
+                if abv[j] <= 0 
+                    continue
+                else
+                    ab = abv[j] * tbl.Abundance[i]
+                end
+                if ab < abundance_cutoff 
+                    continue
+                else
+                    ni += 1
+                    push!(els, copy(els[j]))
+                    els[ni][nisotopes[eln] + 1:nisotopes[eln + 1]] .= tbl.Number[i]
+                    push!(abv, ab)
+                    push!(preabv, preabv[j] * tbl.Preab[i])
+                    push!(mass, mass[j] + tbl.Mass[i])
+                end
+            end
+        end
+        for j in 1:ci
+            preabv[j] *= tbl.Preab[begin]
+            mass[j] += tbl.Mass[begin]
+        end
+        ci = ni
+    end
+    els, mass, abv, preabv
 end
 
-function combinesubisotopologues_iter!(els, mass, abv, preabv, tbls, abundance_cutoff, el, ms, maxab, preab, eln)
-    eln == lastindex(tbls) && return combinesubisotopologues_end_iter!(els, mass, abv, preabv, tbls, abundance_cutoff, el, ms, maxab, preab)
-    i = 0
-    @inbounds while i < length(tbls[eln].Abundance)
-        combinesubisotopologues_iter!(els, mass, abv, preabv, tbls, abundance_cutoff, vcat(el, tbls[eln].Number[i + 1]), ms + tbls[eln].Mass[i + 1], maxab * tbls[eln].Abundance[i + 1], preab * tbls[eln].Preab[i + 1], eln + 1) || break
-        i += 1
-    end
-    i > 0
-end
+# function combinesubisotopologues!(els, mass, abv, tbls, abundance_cutoff, el, ms, maxab, eln, isn, nisotopes)
+#     eln == lastindex(tbls) && return combinesubisotopologues_end!(els, mass, abv, tbls, abundance_cutoff, el, ms, maxab, isn)
+#     i = 0
+#     @inbounds while i < length(tbls[eln].Abundance)
+#         el[isn:isn + nisotopes[eln] - 1] .= tbls[eln].Number[i + 1]
+#         combinesubisotopologues!(els, mass, abv, tbls, abundance_cutoff, el, ms + tbls[eln].Mass[i + 1], maxab * tbls[eln].Abundance[i + 1], eln + 1, isn + nisotopes[eln], nisotopes) || break
+#         i += 1
+#     end
+#     el[isn:isn + nisotopes[eln] - 1] .= tbls[eln].Number[begin]
+#     i > 0
+# end
 
-function combinesubisotopologues_end_iter!(els, mass, abv, preabv, tbls, abundance_cutoff, el, ms, maxab, preab)
-    i = 0
-    @inbounds while i < length(tbls[end].Abundance)
-        ab = maxab * tbls[end].Abundance[i + 1]
-        ab < abundance_cutoff && break
-        i += 1
-        push!(els, vcat(el, tbls[end].Number[i]))
-        push!(abv, ab)
-        push!(mass, ms + tbls[end].Mass[i])
-        push!(preabv, preab * tbls[end].Preab[i])
-    end
-    i > 0
-end
+# function combinesubisotopologues_end!(els, mass, abv, tbls, abundance_cutoff, el, ms, maxab, isn)
+#     i = 0
+#     @inbounds while i < length(tbls[end].Abundance)
+#         ab = maxab * tbls[end].Abundance[i + 1]
+#         ab < abundance_cutoff && break
+#         i += 1
+#         el[isn:end] .= tbls[end].Number[i]
+#         push!(els, copy(el))
+#         push!(abv, ab)
+#         push!(mass, ms + tbls[end].Mass[i])
+#     end
+#     el[isn:end] .= tbls[end].Number[begin]
+#     i > 0
+# end
+
+# function combinesubisotopologues_iter!(els, mass, abv, preabv, tbls, abundance_cutoff, el, ms, maxab, preab, eln, isn, nisotopes)
+#     eln == lastindex(tbls) && return combinesubisotopologues_end_iter!(els, mass, abv, preabv, tbls, abundance_cutoff, el, ms, maxab, preab, isn)
+#     i = 0
+#     @inbounds while i < length(tbls[eln].Abundance)
+#         el[isn:isn + nisotopes[eln] - 1] .= tbls[eln].Number[i + 1]
+#         combinesubisotopologues_iter!(els, mass, abv, preabv, tbls, abundance_cutoff, el, ms + tbls[eln].Mass[i + 1], maxab * tbls[eln].Abundance[i + 1], preab * tbls[eln].Preab[i + 1], eln + 1, isn + nisotopes[eln], nisotopes) || break
+#         i += 1
+#     end
+#     el[isn:isn + nisotopes[eln] - 1] .= tbls[eln].Number[begin]
+#     i > 0
+# end
+
+# function combinesubisotopologues_end_iter!(els, mass, abv, preabv, tbls, abundance_cutoff, el, ms, maxab, preab, isn)
+#     i = 0
+#     @inbounds while i < length(tbls[end].Abundance)
+#         ab = maxab * tbls[end].Abundance[i + 1]
+#         ab < abundance_cutoff && break
+#         i += 1
+#         el[isn:end] .= tbls[end].Number[i]
+#         push!(els, copy(el))
+#         push!(abv, ab)
+#         push!(mass, ms + tbls[end].Mass[i])
+#         push!(preabv, preab * tbls[end].Preab[i])
+#     end
+#     el[isn:end] .= tbls[end].Number[begin]
+#     i > 0
+# end

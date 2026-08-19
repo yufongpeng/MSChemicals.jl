@@ -34,20 +34,22 @@ function combinemsx(precise, tbls, abundance_cutoff, maxab)
     abv = typeof(return_abundance(precise, big(0.0)))[]
     el = [tbl.Element[begin] for tbl in tbls]
     ms = reverse(cumsum(tbl.Mass[begin] for tbl in Iterators.reverse(tbls)))
-    @inbounds for i in eachindex(tbls[end].Abundance)
+    tbl = tbls[end]
+    @inbounds for i in eachindex(tbl.Abundance)
         push!(els, copy(el))
-        els[end][end] = tbls[end].Element[i]
-        push!(abv, maxab * tbls[end].Abundance[i])
+        els[end][end] = tbl.Element[i]
+        push!(abv, maxab * tbl.Abundance[i])
         push!(mass, copy(ms))
-        mass[end][end] = tbls[end].Mass[i]
+        mass[end][end] = tbl.Mass[i]
     end
-    ci = length(tbls[end].Abundance)
-    @inbounds for eln in (lastindex(tbls) - 1):-1:1
+    ci = length(tbl.Abundance)
+    @inbounds for eln in (lastindex(tbls) - 1):-1:firstindex(tbls)
         ni = ci
-        for i in eachindex(tbls[eln].Abundance)
+        tbl = tbls[eln]
+        for i in eachindex(tbl.Abundance)
             if i == 1 
                 for j in 1:ci
-                    mass[j][eln] = tbls[eln].Mass[i] + mass[j][eln + 1]
+                    mass[j][eln] = tbl.Mass[i] + mass[j][eln + 1]
                 end
                 continue
             end
@@ -55,17 +57,17 @@ function combinemsx(precise, tbls, abundance_cutoff, maxab)
                 if abv[j] <= 0 
                     continue
                 else
-                    ab = abv[j] * tbls[eln].Abundance[i]
+                    ab = abv[j] * tbl.Abundance[i]
                 end
                 if ab < abundance_cutoff 
                     continue
                 else
                     ni += 1
                     push!(els, copy(els[j]))
-                    els[ni][eln] = tbls[eln].Element[i]
+                    els[ni][eln] = tbl.Element[i]
                     push!(abv, ab)
                     push!(mass, copy(mass[j]))
-                    mass[ni][eln] = tbls[eln].Mass[i] + mass[j][eln + 1]
+                    mass[ni][eln] = tbl.Mass[i] + mass[j][eln + 1]
                 end
             end
         end
