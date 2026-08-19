@@ -1,6 +1,6 @@
 name = "MassSpecChemicals"
 uuid = "a0caa3fb-cd40-4122-b5cb-396daad418a9"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Yu-Fong Peng <sciphypar@gmail.com>"]
 
 [deps]
