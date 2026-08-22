@@ -319,6 +319,7 @@ elements_decodes() = DECODES
 
 Update or insert `element`. 
 
+# Arguments
 * `element::AbstractString`: element name.
 * `mass::Vector`: atomic mass of all isotopes.
 * `abundance::Vector`: natural abundance of all isotopes.

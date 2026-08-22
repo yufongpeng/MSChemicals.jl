@@ -1,13 +1,14 @@
 """
-    plot_spectrum([mz_range = nothing,] spectrum::Spectrum; deconvolution = false, abundance = 1, abtype = :max, threshold = rcrit(1e-4), kwargs...)
-    plot_spectrum([mz_range = nothing,] mztable::Table; abundance = 1, abtype = :max, threshold = rcrit(1e-4), kwargs...)
+    plot_spectrum(mz_range = nothing, spectrum::Spectrum; deconvolution = false, abundance = 1, abtype = :max, threshold = rcrit(1e-4), kwargs...)
+    plot_spectrum(mz_range = nothing, mztable::Table; abundance = 1, abtype = :max, threshold = rcrit(1e-4), kwargs...)
 
 Plot a spectrum.
 
+# Arguments
 * `mz_range::Union{Nothing, Tuple}`: nothing (indicating entire mz range) or a tuple of m/z lower bound an d upper bound.
 * `deconvolution::Bool`: plot deconvoluted or convoluted spectrum.
 * `abundance` sets the abundance of the peak specified by `abtype`. 
-* `abtype`
+* `abtype`.
     * `:max`: the largest peak.
     * `:list`: sum of listed peaks.
     * `:raw`: no abundance normalization.
@@ -22,15 +23,16 @@ plot_spectrum(mz_range, mztable::Table; abundance = 1, abtype = :max, threshold 
 plot_spectrum(x; kwargs...) = plot_spectrum(nothing, x; kwargs...)
 
 """
-    plot_spectrum!([mz_range = nothing,] spectrum::Spectrum; deconvolution = false, abundance = 1, abtype = :max, threshold = rcrit(1e-4), kwargs...)
-    plot_spectrum!([mz_range = nothing,] mztable::Table; abundance = 1, abtype = :max, threshold = rcrit(1e-4), kwargs...)
+    plot_spectrum!(mz_range = nothing, spectrum::Spectrum; deconvolution = false, abundance = 1, abtype = :max, threshold = rcrit(1e-4), kwargs...)
+    plot_spectrum!(mz_range = nothing, mztable::Table; abundance = 1, abtype = :max, threshold = rcrit(1e-4), kwargs...)
 
 Plot a spectrum to an existing figure.
 
+# Arguments
 * `mz_range::Union{Nothing, Tuple}`: nothing (indicating entire mz range) or a tuple of m/z lower bound an d upper bound.
 * `deconvolution::Bool`: plot deconvoluted or convoluted spectrum.
 * `abundance` sets the abundance of the peak specified by `abtype`. 
-* `abtype`
+* `abtype`.
     * `:max`: the largest peak.
     * `:list`: sum of listed peaks.
     * `:raw`: no abundance normalization.
@@ -142,10 +144,11 @@ function spectrum_id(mz_lower, mz_upper, spectrum, np)
 end
 
 """
-    plot_resolving_power([mz_range = nothing,] ms::AbstractMSAnalyzer; n = 1000, label = msanalyzer_name(ms), kwargs...)
+    plot_resolving_power(mz_range = nothing, ms::AbstractMSAnalyzer; n = 1000, label = msanalyzer_name(ms), kwargs...)
 
 Plot the function of m/z to resolving_power.
 
+# Arguments
 * `mz_range::Union{Nothing, Tuple}`: nothing (indicating using `ms.mz`) or a tuple of m/z lower bound an d upper bound.
 * `n::Int`: number of data points.
 
@@ -156,10 +159,11 @@ plot_resolving_power(mz_range, ms::AbstractMSAnalyzer; n = 1000, label = msanaly
 plot_resolving_power(ms::AbstractMSAnalyzer; n = 1000, label = msanalyzer_name(ms), kwargs...) = plot_resolving_power(nothing, ms; n, label, kwargs...)
 
 """
-    plot_resolving_power!([mz_range = nothing,] ms::AbstractMSAnalyzer; n = 1000, label = msanalyzer_name(ms), kwargs...)
+    plot_resolving_power!(mz_range = nothing, ms::AbstractMSAnalyzer; n = 1000, label = msanalyzer_name(ms), kwargs...)
 
 Plot the function of m/z to resolving_power to an existing figure.
 
+# Arguments
 * `mz_range::Union{Nothing, Tuple}`: nothing (indicating using `ms.mz`) or a tuple of m/z lower bound an d upper bound.
 * `n::Int`: number of data points.
 
@@ -173,7 +177,7 @@ function _plot_resolving_power(mz_range, ms::AbstractMSAnalyzer; fn = plot, n = 
     if isnothing(mz_range)
         mz_range = ms.mz
     end
-    if mz_range isa Tuple{<: Real, <: Real}
+    if mz_range isa Tuple{<:Real, <:Real}
         mz_lower, mz_upper = mz_range 
     else
         throw(ArgumentError("`mz_range` must be a tuple, i.e. (lowerbound, upperbound)."))
@@ -197,6 +201,7 @@ end
 
 Plot the window function.
 
+# Arguments
 * `fwhm::Real`: m/z fwhm.
 * `binsize::Real`: binsize of m/z value. 
 * `nbin_multiplier`: multiplier of actual plotted data bin relative to `binsize`.

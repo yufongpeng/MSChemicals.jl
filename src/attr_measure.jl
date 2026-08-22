@@ -20,9 +20,9 @@ measure_name(fn, error::typeof(ppm_error)) = string("Δ", measure_name(fn), "/",
 measure_name(fn, error::typeof(ppm_error_mean)) = string("Δ", measure_name(fn), "/", measure_name(fn), "(ppm)")
 
 """
-    measure_error(fn) -> Vector{<: Function}
+    measure_error(fn) -> Vector{<:Function}
 
-Common error functions for measurement `fn`.
+Default error functions for measurement `fn`.
 """
 measure_error(::typeof(retentiontime)) = [value_error]
 measure_error(::AbstractMSAnalyzer) = [value_error, ppm_error]
@@ -82,9 +82,9 @@ function sgaussian_norm!(u::AbstractVector, ν::AbstractRange, t)
 end
 
 """
-    window_name(ms::AbstractWindow) -> String
+    window_name(window::AbstractWindow) -> String
 
-Common name of the window.
+Common name of `window`.
 """
 window_name(::GaussianWindow) = "Gaussian Window"
 window_name(::GaussianTailedUniformWindow) = "Uniform Window (Gaussian-Tailed)"
@@ -152,29 +152,21 @@ end
 
 Parameters of the window function `msanalyzer.window` with `mz` value. It typically returns the center and dispersion of the window. See documentation of each window for details.
 """
-window_parameter(msanalyzer::AbstractMSAnalyzer{<: GaussianTailedUniformWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<: GaussianWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ) ^ 2 / log(256))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<: FixedTaperTukeyWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<: TukeyWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<: CosineWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<: PowerCosineWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<: RectWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<: SuperGaussianWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ) / (sqrt(8) * log(2) ^ (1 / msanalyzer.window.power)))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:GaussianTailedUniformWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:GaussianWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ) ^ 2 / log(256))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:FixedTaperTukeyWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:TukeyWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:CosineWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:PowerCosineWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:RectWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:SuperGaussianWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ) / (sqrt(8) * log(2) ^ (1 / msanalyzer.window.power)))
 
 """
-    discrete_window(msanalyzer::AbstractMSAnalyzer, mz::Vector, binsize, nbin_multiplier, height) 
-    discrete_window(window::AbstractWindow, fwhm, binsize, nbin_multiplier, height)
+    discrete_window(msanalyzer::AbstractMSAnalyzer, mz::Vector, binsize::Real, nbin_multiplier::Real, height::Real) 
+    discrete_window(window::AbstractWindow, fwhm::Real, binsize::Real, nbin_multiplier::Real, height::Real)
 
-Discrete values of `window` with `fwhm` or `msanalyzer.window` at `mz` values (FWHM is computed through `fwhm_mz`).
-
-# Arguments 
-* `msanalyzer`: MS Analyzer
-* `mz`: m/z values
-* `window`: window
-* `fwhm`: FWHM
-* `binsize`: the size of m/z bin
-* `nbin_multiplier`: the interval between sampled bins
-* `height`: minimal window value
+Discrete values of `window` with `fwhm` or ms analyzer `msanalyzer.window` at `mz` values (FWHM is computed through function `fwhm_mz`). 
+`binsize` sets the size of m/z bin, `nbin_multiplier` sets the interval between sampled bins, and `height` sets minimal window value.
 """
 function discrete_window(msanalyzer::AbstractMSAnalyzer, μ::Vector{T}, binsize, nbin_multiplier, height) where T
     fwhm_ref = fwhm_mz(msanalyzer, first(μ))

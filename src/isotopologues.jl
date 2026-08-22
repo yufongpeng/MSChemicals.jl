@@ -9,18 +9,20 @@
 A `Table` of isotopologues of 
 * `chemical::AbstractChemical`: a single chemical entity.
 * `formula_name::AbstractString`: a chemical formula or name.
-* `chemicaltransition::ChemicalTransition`: MS/MS transition.
-* `formula_name_pair::Pair`: MS/MS transition of formulas or names.
+* `chemicaltransition::ChemicalTransition`: MSⁿ transition.
+* `formula_name_pair::Pair`: MSⁿ transition of formulas or names.
 * `tbl::Table`: multiple chemicals in column `Chemical` with abundance in column `Abundance1`, `Abundance2`, ... (optional). 
 * `chemicals::Vector`: multiple chemicals.
 
 This function is similar to `TandemIsotopologues`; the key difference is that it is iterative and abundance is calculated in the last stage. It performs faster for multiple MS stages and abundance is normalized and filtered at the end.
 Only isotopic abundance of parent elements are considered, and isotopes are viewed as intentionally labeled elements. 
 
+For MSⁿ transition transition, product can be any scheme, including `<:AbstractStructuralScheme`, `<:AbstractStructuralScheme` or formula starting with `-` or `+` (See [`ChemicalExpressionParser`](@ref) for valid string). 
+
 # Keyword Arguments
 * `chemicalparser::AbstractChemicalParser`: parser for `formula_name` or `formula_name_pair`. The default parser is `ChemicalTransitionParser(ChemicalExpressionParser(; charge = 1, loss = 0, gain = 0))`.
-* `abundance` sets the abundance of the isotope specified by `abtype`. When the input is MS/MS transition, this sets the abundanc of detected chemical. It can also be column `Abundance` in `tbl`.
-* `abtype`
+* `abundance` sets the abundance of the isotope specified by `abtype`. When the input is MS/MS transition, this sets the abundanc of detected chemical. It can also be column `Abundance` of `tbl`.
+* `abtype`.
     * `:max`: the most abundant isotopologue.
     * `:input`: the input isotopologue.
     * `:list`: sum of listed isotopologues.
@@ -30,14 +32,14 @@ Only isotopic abundance of parent elements are considered, and isotopes are view
 * `precise`: whether using `Bigfloat` for abundance computation.
 * `sort`: whether to sort the results by mass.
 
-For MS/MS transition, product can be any scheme, including `<:AbstractStructuralScheme`, `<:AbstractStructuralScheme` or formula starting with `-` or `+` (See `ChemicalExpressionParser` for valid string). Gain scheme can only used in the last MS stage.
-
-!!! note "Special precaution for applying to MS/MS precursor-product pairs"
+!!! note "Special precaution for applying to MSⁿ transition"
     Product must come from a single part or mutiple non-overlapping parts of precursor. Isobaric or isomeric products are not considered. For instance, 
     * PC 18:0/18:0 and fatty acyl 18:0 fragment is valid because two fatty acids are independent and identical. 
     * PC 18:0[D5]/18:0 and fatty acyl 18:0[D5] fragment is valid but the contribution of another fatty acid 18:0 is not considered and addional computation of this pair and summation with knowledge of fragmentation efficiency are required for the correct abundances. 
     * PC 18:1/18:0 and fatty acyl 18:0 fragment is also valid but requires additional computation of isobaric contribution of another fatty acid 18:1. 
 
+!!! note "Special precaution for applying to MSⁿ transition with chemical gain"
+    Any intermediate chemical gains are not allowed.
 """
 Isotopologues(input_chemical::AbstractChemical; 
         chemicalparser = ChemicalTransitionParser(),
@@ -223,41 +225,42 @@ Isotopologues(::Isotopomers; kwargs...) = throw(ArgumentError("`Isotopomers` is 
 A `Table` of isotopologues of the following chemicals and their products. 
 * `chemical::AbstractChemical`: a single chemical entity.
 * `formula_name::AbstractString`: a chemical formula or name.
-* `chemicaltransition::ChemicalTransition`: MS/MS transition.
-* `formula_name_pair::Pair`: MS/MS transition of formulas or names. 
+* `chemicaltransition::ChemicalTransition`: MSⁿ transition.
+* `formula_name_pair::Pair`: MSⁿ transition of formulas or names. 
 * `tbl::Table`: multiple chemicals in column `Chemical` with abundance in column `Abundance1`, `Abundance2`, ... (optional). 
 * `chemicals::Vector`: multiple chemicals.
 
 This function is similar to `Isotopologues`; the key difference is that it is recursive and abundance is calculated from the beginning. It generally performs slightly slower for multiple MS stages and abundance is normalized in the first stage and filtered in all stages.
 Only isotopic abundance of parent elements are considered, and isotopes are viewed as intentionally labeled elements. 
 
+For MSⁿ transition transition, product can be any scheme, including `<:AbstractStructuralScheme`, `<:AbstractStructuralScheme` or formula starting with `-` or `+` (See [`ChemicalExpressionParser`](@ref) for valid string). 
+
 # Keyword Arguments
 * `chemicalparser::AbstractChemicalParser`: parser for `formula_name`, `formula_name_pair` or `product`. The default parser is `ChemicalTransitionParser(ChemicalExpressionParser(; charge = 1, loss = 0, gain = 0))`.
-* `abundance` sets the abundance of the precursor isotope specified by `abtype`. It can be a vector when the input is MS/MS transition, and abundances are matched to MS stages from the end (the last element matches to the last MS stage). If the length of abundance is smaller, the remaining elemets are filled using `transmission`. 
-Notice that setting abundance does not guarantee the equality abundance of the particular isotopes in each MS stage, but the sum of isotopes derived from the particular input precursor isotopes. 
-It can also be column `Abundance` in `tbl`.
-* `abtype`
+* `abundance` sets the abundance of the precursor isotope specified by `abtype`. It can be a vector when the input is MS/MS transition, and abundances are matched to MS stages from the end (the last element matches to the last MS stage). If the length of abundance is smaller, the remaining elemets are filled using `transmission`. It can also be column `Abundance` of `tbl`.
+* `abtype`.
     * `:max`: the most abundant isotopologue.
     * `:input`: the input isotopologue.
     * `:list`: sum of listed isotopologues.
     * `:total`: sum of total isotopologues.
 * `threshold` can be a number or criteria, representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
-* `product::Vector`: product chemicals. It can also be column `Product` in `tbl`.
-* `transmission`: transmission rate between precursors (MS/MS transition). It is utlized when all elements of `abundance` are used out. It can also be column `Transmission` in `tbl`.
-* `proportion::Vector`: proportion of fragmentation relative to precursor. It can also be column `Proportion` in `tbl`.
+* `product::Vector`: product chemicals. It can also be column `Product` of `tbl`.
+* `transmission`: transmission rate between precursors (MS/MS transition). It is utlized when all elements of `abundance` are used out. It can also be column `Transmission` of `tbl`.
+* `proportion::Vector`: proportion of fragmentation relative to precursor. It can also be column `Proportion` of `tbl`.
 * `threading`: force to use multiple threads (`true`) or single thread (`false`); `nothing` lets the program determine. 
 * `precise`: whether using `Bigfloat` for abundance computation.
 * `sort`: whether to sort the results by mass.
 
-For MS/MS precursor-product pairs, product can be neutral loss/gain or ion loss/gain, including `AbstractElementalScheme`, `AbstractStructuralScheme` and formula starting with `-` or `+` (See `ChemicalExpressionParser` for valid string). 
+!!! note "Setting abundance ≠ particular isotopologue abundance"
+    Setting abundance does not guarantee the equality of abundance of a particular isotopologue in each MS stage, but the abundance sum of isotopologues derived from the particular input precursor isotopologue. 
 
-!!! note "Special precaution for applying to MS/MS precursor-product pairs"
+!!! note "Special precaution for applying to MSⁿ transition"
     Product must come from a single part or mutiple non-overlapping parts of precursor. Isobaric or isomeric products are not considered. For instance, 
     * PC 18:0/18:0 and fatty acyl 18:0 fragment is valid because two fatty acids are independent and identical. 
     * PC 18:0[D5]/18:0 and fatty acyl 18:0[D5] fragment is valid but the contribution of another fatty acid 18:0 is not considered and addional computation of this pair and summation with knowledge of fragmentation efficiency are required for the correct abundances. 
     * PC 18:1/18:0 and fatty acyl 18:0 fragment is also valid but requires additional computation of isobaric contribution of another fatty acid 18:1. 
 
-!!! note "Special precaution for applying to MS/MS precursor-product pairs with chemical gain"
+!!! note "Special precaution for applying to MSⁿ transition with chemical gain"
     After any chemical gain, the subsequent products are considered randomly fragmented from the gained precursor without considering any structure introduced by chemical gain.
 """
 function TandemIsotopologues(input_chemical::AbstractChemical; 
@@ -540,8 +543,6 @@ TandemIsotopologues(::Isotopomers; kwargs...) = throw(ArgumentError("`Isotopomer
     group_isotopologues(mztable::Table; isotope = "[13C]")
 
 Group isotopologues by isotopomer state based on `isotope`.
-
-* `isotope::String`: minor isotope.
 """
 function group_isotopologues(mztable::Table; isotope = "[13C]")
     sp = string.(propertynames(mztable))
@@ -563,7 +564,7 @@ end
 """
     isotopicabundance(chemical::AbstractChemical, total = 1.0; ignore_isotopes = false, precise = false)
     isotopicabundance(formula::AbstractString, total = 1.0; ignore_isotopes = false, precise = false)
-    isotopicabundance(elements::Union{<: Vector, Dict}, total = 1.0; ignore_isotopes = false, precise = false)
+    isotopicabundance(elements::Union{<:Vector, <:Dict}, total = 1.0; ignore_isotopes = false, precise = false)
 
 Compute isotopic abundance of `chemical`, `formula`, vector of element-number pairs or dictionary mapping element to number. `total` is the abundance of all isotopologues.
 
@@ -572,7 +573,7 @@ To compute isotopic abundance of chemicals with all isotopes labeled intentional
 """
 isotopicabundance(cc::AbstractChemical, total = 1.0; ignore_isotopes = false, precise = false) = isotopicabundance(chemicalformula(cc), total; ignore_isotopes, precise)
 isotopicabundance(formula::AbstractString, total = 1.0; ignore_isotopes = false, precise = false) = isotopicabundance(chemicalelements(formula), total; ignore_isotopes, precise)
-isotopicabundance(elements::Vector{<: Pair}, total = 1.0; ignore_isotopes = false, precise = false) = isotopicabundance(Val(precise), unique_elements(elements), total; ignore_isotopes)
+isotopicabundance(elements::Vector{<:Pair}, total = 1.0; ignore_isotopes = false, precise = false) = isotopicabundance(Val(precise), unique_elements(elements), total; ignore_isotopes)
 isotopicabundance(elements::Pair, total = 1.0; ignore_isotopes = false, precise = false) = isotopicabundance(Val(precise), elements, total; ignore_isotopes)
 isotopicabundance(elements::ElementsVector, total = 1.0; ignore_isotopes = false, precise = false) = isotopicabundance(Val(precise), unique_elements(elements), total; ignore_isotopes)
 isotopicabundance(elements::Dict, total = 1.0; ignore_isotopes = false, precise = false) = isotopicabundance(Val(precise), collect(elements), total; ignore_isotopes)
@@ -581,7 +582,7 @@ isotopicabundance(precise::Val, elements::ElementsVector, total = 1.0; ignore_is
 function isotopicabundance(precise::Val, elements::Pair, total = 1.0; ignore_isotopes = false)
     update_isotopicabundance(precise, total, elements)
 end
-function isotopicabundance(precise::Val, elements::Vector{<: Pair}, total = 1.0; ignore_isotopes = false)
+function isotopicabundance(precise::Val, elements::Vector{<:Pair}, total = 1.0; ignore_isotopes = false)
     elements = ignore_isotopes ? filter(iselement ∘ first, elements) : elements
     update_isotopicabundance(precise, total, elements)
 end

@@ -1,39 +1,38 @@
-
 """
-    abstract type AbstractElementalScheme <: AbstractScheme end
+    AbstractElementalScheme <: AbstractScheme end
 
-Scheme contaning exact elements.
+Abstract scheme contaning exact elements.
 """
 abstract type AbstractElementalScheme <: AbstractScheme end
 """
-    abstract type AbstractStructuralScheme <: AbstractScheme end
+    AbstractStructuralScheme <: AbstractScheme end
 
-Scheme contaning only structures.  
+Abstract scheme contaning only structures.  
 """
 abstract type AbstractStructuralScheme <: AbstractScheme end
 """
-    abstract type AbstractCompleteScheme{T,S} <: AbstractScheme end
+    AbstractCompleteScheme{T, S} <: AbstractScheme end
 
-Scheme contaning both elements and structures. 
+Abstract scheme contaning both elements and structures. 
 """
 abstract type AbstractCompleteScheme{T, S} <: AbstractScheme end
 """
-    abstract type StructuralChemicalScheme <: AbstractStructuralScheme end
+    StructuralChemicalScheme <: AbstractStructuralScheme end
 
-Scheme contaning structures generating chemical entity. 
+Abstract scheme contaning structures generating chemical entity. 
 """
 abstract type StructuralChemicalScheme <: AbstractStructuralScheme end
 
 struct RandomProductScheme <: AbstractStructuralScheme end
 
 """
-    abstract type StructuralElementalScheme{T,S} <: AbstractCompleteScheme{T,S} end
+    StructuralElementalScheme{T, S} <: AbstractCompleteScheme{T, S} end
 
-Default `AbstractCompleteScheme`
+Default `AbstractCompleteScheme`.
 
 # Fields
-* `structuralscheme::T`
-* `elementalscheme::S`
+* `structuralscheme::T`.
+* `elementalscheme::S`.
 """
 struct StructuralElementalScheme{T, S} <: AbstractCompleteScheme{T, S}
     structuralscheme::T 
@@ -45,7 +44,6 @@ end
     ElementalScheme{Bool, T<:AbstractChemical} <: AbstractElementalScheme
 
 Single scheme involving a chemical. The elements are fixed, and can be replaced by minor isotopes. 
-
 * `ElementalScheme{false}`: chemical loss from a precursor. This product is not detected in MS; the other part of precursor is detected instead.
 * `ElementalScheme{true}`: chemical gain to a precursor. This product is not detected in MS; the merged chemical is detected instead.
 
@@ -53,10 +51,13 @@ Single scheme involving a chemical. The elements are fixed, and can be replaced 
 * `chemical::T`: chemical involved in scheme.
 
 Single isotopomer can be set by using `Isotopomers` as field `chemical`. Elemental scheme can be redirected to the corresponding isotopic labeled scheme in `AdductIon` by dispatching on core chemical and existing schema, or looking up the `property` for generic `Chemical`.
+
+# Constructors
+    ElementalScheme(gain::Bool, chemical::T) = ElementalScheme{gain, T}(chemical)
 """
 struct ElementalScheme{Bool, T<:AbstractChemical} <: AbstractElementalScheme
     chemical::T
-    function ElementalScheme(gain::Bool, x::T) where {T <: AbstractChemical}
+    function ElementalScheme(gain::Bool, x::T) where {T<:AbstractChemical}
         new{gain, T}(x)
     end
 end
@@ -94,8 +95,8 @@ end
 Mutiple chemical schema with delocalized isotopic replacements.
 
 # Fields
-* `schema::T`: parent scheme
-* `isotopes::ElementsVector`: delocalized isotopic replacements
+* `schema::T`: parent scheme.
+* `isotopes::ElementsVector`: delocalized isotopic replacements.
 """
 struct IsotopomerizedSchema{T<:ChemicalSchema} <: AbstractScheme 
     parent::T
@@ -152,7 +153,7 @@ end
 schemetype(::ChemicalSchema{T}) where T = T 
 schemetype(::T) where T = T 
 
-function ChemicalSchema(scheme::T, schema...) where {T <: AbstractScheme} 
+function ChemicalSchema(scheme::T, schema...) where {T<:AbstractScheme} 
     C = promote_type(T, schemetype.(schema)...)
     cs = C[scheme]
     cn = Int[1]
@@ -162,7 +163,7 @@ function ChemicalSchema(scheme::T, schema...) where {T <: AbstractScheme}
     ChemicalSchema(cs, cn)
 end
 
-function ChemicalSchema(schema::AbstractVector{T}) where {T <: AbstractScheme}
+function ChemicalSchema(schema::AbstractVector{T}) where {T<:AbstractScheme}
     cs = T[first(schema)]
     cn = Int[1]
     length(schema) < 2 && return ChemicalSchema(cs, cn)
@@ -172,7 +173,7 @@ function ChemicalSchema(schema::AbstractVector{T}) where {T <: AbstractScheme}
     ChemicalSchema(cs, cn)
 end
 
-function ChemicalSchema(scheme::ChemicalSchema{T}, schema...) where {T <: AbstractScheme}
+function ChemicalSchema(scheme::ChemicalSchema{T}, schema...) where {T<:AbstractScheme}
     C = promote_type(T, schemetype.(schema)...)
     if C == T
         cs = copy(scheme.schema)
@@ -213,7 +214,7 @@ end
 """
     const CompleteSchema = Union{<:AbstractCompleteScheme, <:ChemicalSchema{<:AbstractCompleteScheme}, <:IsotopomerizedSchema{<:ChemicalSchema{<:AbstractCompleteScheme}}, <:Groupedisotopomerizedschema{<:ChemicalSchema{<:AbstractCompleteScheme}}}
 
-Complete scheme (scheme containing both `structuralscheme` and `elementalscheme`)
+Complete scheme (scheme containing both `structuralscheme` and `elementalscheme`).
 """
 const CompleteSchema = Union{<:AbstractCompleteScheme, <:ChemicalSchema{<:AbstractCompleteScheme}, <:IsotopomerizedSchema{<:ChemicalSchema{<:AbstractCompleteScheme}}, <:Groupedisotopomerizedschema{<:ChemicalSchema{<:AbstractCompleteScheme}}}
 
@@ -232,8 +233,8 @@ Elemental schema.
 const ElementalSchema = Union{<:AbstractElementalScheme, <:ChemicalSchema{<:AbstractElementalScheme}, <:IsotopomerizedSchema{<:ChemicalSchema{<:AbstractElementalScheme}}, <:Groupedisotopomerizedschema{<:ChemicalSchema{<:AbstractElementalScheme}}}
 
 """
-    const CompleteSchemeChemical = AbstractCompleteScheme{T,<:AbstractChemical}
+    const CompleteSchemeChemical = AbstractCompleteScheme{T, <:AbstractChemical}
 
-Complete scheme 
+Complete scheme genrating chemical.
 """
-const CompleteSchemeChemical = AbstractCompleteScheme{T,<:AbstractChemical} where T
+const CompleteSchemeChemical = AbstractCompleteScheme{T, <:AbstractChemical} where T

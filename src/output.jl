@@ -3,8 +3,8 @@
 
 Default name of `chemical` if no attribute and specific method is not implemented for `chemicalname`.
 """
-defaultname(::T) where {T <: AbstractChemical} = string("Chemical::", T)
-defaultname(::T) where {T <: AbstractScheme} = string("Scheme::", T)
+defaultname(::T) where {T<:AbstractChemical} = string("Chemical::", T)
+defaultname(::T) where {T<:AbstractScheme} = string("Scheme::", T)
 
 post_decorator(::ElementalScheme{false}; delim = "") = delim
 post_decorator(::ElementalScheme{false, <:FormulaChemical}; delim = "") = ""
@@ -113,19 +113,19 @@ function Base.show(io::IO, ri::IntervalSet)
     print(io, repr_ri(ri))
 end
 
-function Base.show(io::IO, c::Criteria{A, B}) where {A <: IntervalSet, B <: IntervalSet}
+function Base.show(io::IO, c::Criteria{A, B}) where {A<:IntervalSet, B<:IntervalSet}
     print(io, "Criteria{IntervalSet, IntervalSet}(")
     print(io, repr_ri(c.aval), ", ")
     print(io, repr_ri(c.rval), ")")
 end
 
-function Base.show(io::IO, c::Criteria{A, B}) where {A <: Missing, B <: IntervalSet}
+function Base.show(io::IO, c::Criteria{A, B}) where {A<:Missing, B<:IntervalSet}
     print(io, "Criteria{Missing, IntervalSet}(")
     print(io, "missing, ")
     print(io, repr_ri(c.rval), ")")
 end
 
-function Base.show(io::IO, c::Criteria{A, B}) where {A <: IntervalSet, B <: Missing}
+function Base.show(io::IO, c::Criteria{A, B}) where {A<:IntervalSet, B<:Missing}
     print(io, "Criteria{IntervalSet, Missing}(")
     print(io, repr_ri(c.aval), ", ")
     print(io, "missing)")

@@ -11,11 +11,11 @@ function isotopologues_elements_ms2(precise::Val, precursor, product_sch, produc
         proportion_cutoff = minimum(makecrit_value(crit(threshold), abundance)) * isotopicabundance(element_precursor) / abundance
         it2 = isotopologues_elements_ms1(precise, product_sch, element_dictionary, msfix, 1, Total(), proportion_cutoff, iter, sort; net_charge)
         abundance_cutoff = minimum(makecrit_value(crit(threshold), abundance)) * maximum(it2.Abundance) * maximum(it1.Abundance) / abundance
-        data = [
-            Vector{Vector{<:Vector}}(undef, length(precursor)),
+        data = (
+            Vector{Vector{Any}}(undef, length(precursor)),
             Vector{Vector{float(Int)}}(undef, length(precursor)),
             Vector{Vector{typeof(return_abundance(precise, big(0.0)))}}(undef, length(precursor))
-        ]
+        )
         for idp in eachindex(IndexLinear(), precursor)
             d1 = Vector[]
             d2 = float(Int)[]
@@ -47,20 +47,20 @@ function isotopologues_elements_ms2(precise::Val, precursor, product_sch, produc
         if iter 
             fn_main = isotopologues_elements_single_ms2_iter
             fn_push = sort ? push_data_iter_sort! : push_data_iter!
-            data = [
-                Vector{Vector{<:Vector}}(undef, length(precursor)),
+            data = (
+                Vector{Vector{Any}}(undef, length(precursor)),
                 Vector{Vector{float(Int)}}(undef, length(precursor)),
                 Vector{Vector{typeof(return_abundance(precise, big(0.0)))}}(undef, length(precursor)),
                 Vector{Vector{typeof(return_abundance(precise, big(0.0)))}}(undef, length(precursor)),
-            ]
+            )
         else
             fn_main = isotopologues_elements_single_ms2
             fn_push = sort ? push_data_sort! : push_data!
-            data = [
-                Vector{Vector{<:Vector}}(undef, length(precursor)),
+            data = (
+                Vector{Vector{Any}}(undef, length(precursor)),
                 Vector{Vector{float(Int)}}(undef, length(precursor)),
                 Vector{Vector{typeof(return_abundance(precise, big(0.0)))}}(undef, length(precursor))
-            ]
+            )
         end
         detected_isotopes = isotopes[iid]
         if loss 
@@ -91,20 +91,20 @@ function isotopologues_elements_ms2(precise::Val, precursor, product_sch, produc
         if iter 
             fn_main = isotopologues_elements_single_ms2_iter
             fn_push = sort ? push_data_iter_sort! : push_data_iter!
-            data = [
-                Vector{Vector{<:Vector}}(undef, length(precursor)),
+            data = (
+                Vector{Vector{Any}}(undef, length(precursor)),
                 Vector{Vector{float(Int)}}(undef, length(precursor)),
                 Vector{Vector{typeof(return_abundance(precise, big(0.0)))}}(undef, length(precursor)),
                 Vector{Vector{typeof(return_abundance(precise, big(0.0)))}}(undef, length(precursor)),
-            ]
+            )
         else
             fn_main = isotopologues_elements_single_ms2
             fn_push = sort ? push_data_sort! : push_data!
-            data = [
-                Vector{Vector{<:Vector}}(undef, length(precursor)),
+            data = (
+                Vector{Vector{Any}}(undef, length(precursor)),
                 Vector{Vector{float(Int)}}(undef, length(precursor)),
                 Vector{Vector{typeof(return_abundance(precise, big(0.0)))}}(undef, length(precursor))
-            ]
+            )
         end
         detected_isotopes = isotopes[iid]
         if loss 

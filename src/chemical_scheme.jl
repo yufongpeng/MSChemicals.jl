@@ -24,7 +24,7 @@ Return an object for comparison with other chemicals by `istransformedchemicaleq
 """
 ischemicalequaltransform(x::AbstractChemical) = x 
 ischemicalequaltransform(x::AbstractScheme) = x 
-ischemicalequaltransform(x::T) where {T <: AbstractChemicalWrapper} = ischemicalequaltransform(x.chemical)
+ischemicalequaltransform(x::T) where {T<:AbstractChemicalWrapper} = ischemicalequaltransform(x.chemical)
 ischemicalequaltransform(x::Isobars) = length(x) == 1 ? ischemicalequaltransform(chemicalentity(x)) : x
 ischemicalequaltransform(x::Isotopomers) = isempty(unique_elements(x.isotopes)) ? x.parent : x 
 ischemicalequaltransform(x::Groupedisotopomers) = length(x.isotopes) > 1 ? x : isempty(unique_elements(x.isotopes[begin])) ? x.parent : Isotopomers(x.parent, x.isotopes[begin]) 
@@ -73,10 +73,10 @@ istransformedchemicalequal(x::ElementalScheme, y::ElementalScheme) = ischemicale
 istransformedchemicalequal(x::StructuralElementalScheme, y::StructuralElementalScheme) = ischemicalequal(structuralscheme(x), structuralscheme(y)) && ischemicalequal(elementalscheme(x), elementalscheme(y))
 
 """
-    ionize([constructor = AdductIon,] chemical; kwargs...) -> AbstractAdductIon
-    ionize([constructor = AdductIon,] chemical, adduct, ncore = 1; kwargs...) -> AbstractAdductIon
+    ionize([constructor,] chemical; kwargs...) -> constructor
+    ionize([constructor,] chemical, args...; kwargs...) -> constructor
 
-Ionize `chemical` and wrap with `constructor`.
+Ionize `chemical` and wrap with `constructor`. The default constructor is `AdductIon`.
 """
 ionize(chemical::AbstractChemical; kwargs...) = ionize(AdductIon, chemical; kwargs...)
 ionize(chemical::AbstractChemical, adduct, ncore = 1; kwargs...) = ionize(AdductIon, chemical, adduct, ncore; kwargs...)
@@ -240,9 +240,9 @@ For generic precursor and product, this function calls `structure_search_element
 When `product` is a generic chemical, `structure_search_elemental` searches the property `:chemicalscheme` for `ionadduct(precursor)` first, and then use the returned scheme instead of `product` for the following structure search. 
 
 Any of the following method should be defined for new structural scheme and new chemical type:
-* `elementalscheme(::new_chemical_type, ::new_structural_type)`
-* `elemental(::AdductIon{new_chemical_type, StructuralElementalScheme{structural_type}}, ::new_structural_type)`
-* `elemental(::AdductIon{new_chemical_type, ChemicalSchema}, ::new_structural_type)`
+* `elementalscheme(::new_chemical_type, ::new_structural_type)`: the new chemical type represents an ion in MS.
+* `elementalscheme(::AdductIon{new_chemical_type, StructuralElementalScheme{structural_type}}, ::new_structural_type)`: the new chemical type formed an adduct ion with single scheme.
+* `elementalscheme(::AdductIon{new_chemical_type, ChemicalSchema}, ::new_structural_type)`: the new chemical type formed an adduct ion with multiple schema.
 """
 elementalscheme(precursor::AbstractChemical, product::AbstractChemical) = product
 elementalscheme(precursor::Nothing, product::AbstractChemical) = product
@@ -280,11 +280,11 @@ For generic chemical types, this function calls `schema_search` which searches t
 
 For other chemicals, it returns a complete scheme directly without incorporating any information from `precursor`.
 
-Defining new method is optional for new structural scheme and new chemical type unless they have to be mixed.
-* `adductionscheme(::AdductIon{new_chemical_type, StructuralElementalScheme{structural_type}}, ::new_structural_type)`
-* `adductionscheme(::AdductIon{new_chemical_type, ChemicalSchema}, ::new_structural_type)`
-* `adductionscheme(::AdductIon{new_chemical_type, StructuralElementalScheme{structural_type}}, ::ChemicalSchema)`
-* `adductionscheme(::AdductIon{new_chemical_type, ChemicalSchema}, ::ChemicalSchema)`
+Defining new method is optional for new structural scheme and new chemical type unless schema have to be blended.
+* `adductionscheme(::AdductIon{new_chemical_type, StructuralElementalScheme{structural_type}}, ::new_structural_type)`.
+* `adductionscheme(::AdductIon{new_chemical_type, ChemicalSchema}, ::new_structural_type)`.
+* `adductionscheme(::AdductIon{new_chemical_type, StructuralElementalScheme{structural_type}}, ::ChemicalSchema)`.
+* `adductionscheme(::AdductIon{new_chemical_type, ChemicalSchema}, ::ChemicalSchema)`.
 """
 adductionscheme(precursor::AdductIon, product::CompleteSchema) = adductionscheme(precursor, structuralscheme(product))
 adductionscheme(precursor::AdductIon, product::AbstractScheme) = ChemicalSchema(ionadduct(precursor), completescheme(precursor, product))
@@ -319,14 +319,14 @@ The chemical directly detected in MS.
 
 By default, `completescheme` is applied to `sch` first, and `AdductIon` is generated; chemical entity of `product` or chemical containing `sch` is directly returned.
 
-When `precursor` is `Isotopomers` or `Groupedisotopomers`, the ouput chemical entity is wrapped. 
+When `precursor` is `Isotopomers` or `Groupedisotopomers`, the ouput chemical entity is wrapped accordingly. 
 
 For `AdductIon`, `adductionscheme` is called for blending precursor and product scheme. 
 
-Defining new method is optional unless for using other `AbstractAdductIon` type.
-* `detectedchemical(::new_adduction_type, ::CompleteSchema)`
-* `detectedchemical(::new_adduction_type, ::AbstractScheme)`
-For `StructuralChemicalScheme`, defining new method `elementalscheme(::new_adduct_type, ::new_structural_type)` for each new structural scheme.
+Defining new method is optional unless other `AbstractAdductIon` type is used.
+* `detectedchemical(::new_adduction_type, ::CompleteSchema)`.
+* `detectedchemical(::new_adduction_type, ::AbstractScheme)`.
+For `StructuralChemicalScheme` method, defining new method `elementalscheme(::new_adduction_type, ::structural_type)` for each `structural_type<:StructuralChemicalScheme`.
 """
 detectedchemical(precursor::AbstractChemical, product::AbstractChemical) = product
 # detectedchemical(precursor::AbstractChemical, product::AbstractScheme) = detectedchemical(precursor, completescheme(precursor, product))
@@ -401,7 +401,7 @@ elementalscheme(::Nothing; kwargs...) = nothing
 
 chemicalspecies(isobars::Isobars; kwargs...) = isobars.chemicals
 
-function chemicaltransition(isobars::Isobars{<: ChemicalTransition}; kwargs...) 
+function chemicaltransition(isobars::Isobars{<:ChemicalTransition}; kwargs...) 
     ct = chemicaltransition.(chemicalspecies(isobars))
     [Isobars(getindex.(ct, i), abundance) for (i, abundance) in enumerate(eachcol(isobars.abundance))]
 end
@@ -425,10 +425,10 @@ outputchemical(isobars::Isobars; kwargs...) = Isobars([outputchemical(chemical; 
 outputchemical(ct::ChemicalTransition; kwargs...) = last(chemicaltransition(ct))
 
 analyzedchemical(isobars::Isobars; kwargs...) = detectedchemical(isobars; kwargs...)
-analyzedchemical(isobars::Isobars{<: ChemicalTransition}; kwargs...) = Isobars([analyzedchemical(chemical; kwargs...) for chemical in chemicalspecies(isobars)], isobars.abundance[:, begin])
+analyzedchemical(isobars::Isobars{<:ChemicalTransition}; kwargs...) = Isobars([analyzedchemical(chemical; kwargs...) for chemical in chemicalspecies(isobars)], isobars.abundance[:, begin])
 analyzedchemical(ct::ChemicalTransition; kwargs...) = detectedchemical(inputchemical(ct); kwargs...)
 
-function seriesanalyzedchemical(isobars::Isobars{<: ChemicalTransition}; kwargs...) 
+function seriesanalyzedchemical(isobars::Isobars{<:ChemicalTransition}; kwargs...) 
     ct = chemicaltransition.(chemicalspecies(isobars))
     [analyzedchemical(Isobars(getindex.(ct, i), abundance); kwargs...) for (i, abundance) in enumerate(eachcol(isobars.abundance))]
 end
@@ -470,7 +470,7 @@ function seriesanalyzedelements(ct::ChemicalTransition; kwargs...)
 end
 
 detectedchemical(isobars::Isobars; kwargs...) = Isobars([detectedchemical(chemical; kwargs...) for chemical in chemicalspecies(isobars)], isobars.abundance)
-detectedchemical(isobars::Isobars{<: ChemicalTransition}; kwargs...) = Isobars([detectedchemical(chemical; kwargs...) for chemical in chemicalspecies(isobars)], isobars.abundance[:, end])
+detectedchemical(isobars::Isobars{<:ChemicalTransition}; kwargs...) = Isobars([detectedchemical(chemical; kwargs...) for chemical in chemicalspecies(isobars)], isobars.abundance[:, end])
 
 detectedisotopes(sch::CompleteSchemeChemical; precursor = nothing, precursorisotopes = nothing, kwargs...) = isotopomersisotopes(sch; kwargs...)
 detectedcharge(sch::CompleteSchemeChemical; precursor = nothing, precursorcharge = nothing, kwargs...) = charge(sch; kwargs...)

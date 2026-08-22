@@ -51,7 +51,7 @@ function reverse_formula(x, ischemical, loss)
 end
     
 reverse_elements(x::ElementsVector, loss) = loss ? ElementsVector(x.elements, [-v for v in x.numbers]) : x
-reverse_elements(x::Vector{<: Pair}, loss) = loss ? [k => -v for (k, v) in x] : x
+reverse_elements(x::Vector{<:Pair}, loss) = loss ? [k => -v for (k, v) in x] : x
 reverse_elements(x::Dict, loss) = loss ? Dict(k => -v for (k, v) in x) : x
 reverse_elements(x::Dictionary, loss) = loss ? Dictionary(keys(x), [-v for v in x]) : x
 
@@ -123,17 +123,18 @@ groupedisotopomersabundance(x::Groupedisotopomerizedschema; kwargs...) = x.abund
 """
     chemicalformula(elements::Dict; delim = "", unique = true, ischemical = true, loss = false) -> String
     chemicalformula(elements::Dictionary; delim = "", unique = true, ischemical = true, loss = false) -> String
-    chemicalformula(elements::Vector{<: Pair}; delim = "", unique = true, ischemical = true, loss = false) -> String
+    chemicalformula(elements::Vector{<:Pair}; delim = "", unique = true, ischemical = true, loss = false) -> String
     chemicalformula(elements::ElementsVector; delim = "", unique = true, ischemical = true, loss = false) -> String
 
 Create chemical formula using given element-number pairs. 
 
-* `delim` assigns the delimiter between each element.
-* `unique` determines whether combines the elements to become unique or not.
-* `ischemical` determines whether the chemical is a chemical or a scheme. 
-* `loss` determines whether the chemical is part of chemical loss, and signs are factored out from elements. 
+# Arguments
+* `delim::Union{String, Char}` assigns the delimiter between each element.
+* `unique::Bool` determines whether combines the elements to become unique or not.
+* `ischemical::Bool` determines whether the chemical is a chemical or a scheme. 
+* `loss::Bool` determines whether the chemical is part of chemical loss, and signs are factored out from elements. 
 """
-function chemicalformula(elements::Vector{<: Pair}; delim = "", unique = true, loss = false, ischemical = true)
+function chemicalformula(elements::Vector{<:Pair}; delim = "", unique = true, loss = false, ischemical = true)
     if unique 
         chemicalformula(dictionary_elements(Dictionary, elements); unique = false, loss, ischemical, delim)
     elseif all(x -> last(x) >= 0, elements)
@@ -170,7 +171,8 @@ end
 
 Create element-number pairs from chemical formula. 
 
-* `loss` determines whether the chemical is part of chemical loss, and sign flips are propagated into elements.
+# Arguments
+* `loss::Bool` determines whether the chemical is part of chemical loss, and sign flips are propagated into elements.
 """
 function chemicalelements(formula::AbstractString; loss = false, kwargs...)
     fs = split(formula, "+")
@@ -187,7 +189,7 @@ function chemicalelements(formula::AbstractString; loss = false, kwargs...)
 end
 
 """
-    unique_elements(elements::Vector{<:Pair}) -> Vector{<: Pair}
+    unique_elements(elements::Vector{<:Pair}) -> Vector{<:Pair}
     unique_elements(elements::Dict) -> Dict
     unique_elements(elements::Dictionary) -> Dictionary
     unique_elements(elements::ElementsVector) -> ElementsVector
@@ -205,21 +207,21 @@ function unique_elements(::Type{<:ElementsVector}, elements::ElementsVector)
     id = findall(!=(0), elements.numbers)
     ElementsVector(elements.elements[id], elements.numbers[id])
 end
-unique_elements(::Type{<: Vector{<: Pair}}, elements::ElementsVector) = filter!(x -> last(x) != 0, collect(elements))
+unique_elements(::Type{<:Vector{<:Pair}}, elements::ElementsVector) = filter!(x -> last(x) != 0, collect(elements))
 
 sort_unique_elements(x) = sort!(unique_elements(x))
 
 """
-    dictionary_elements([Dicttype = Dict], elements::Vector{<: Pair}) -> Dicttype
-    dictionary_elements([Dicttype = Dict], elements::Dict) -> Dicttype
-    dictionary_elements([Dicttype = Dict], elements::Dictionary) -> Dicttype
-    dictionary_elements([Dicttype = Dict], elements::ElementsVector) -> Dicttype
+    dictionary_elements(Dicttype = Dict, elements::Vector{<:Pair}) -> Dicttype
+    dictionary_elements(Dicttype = Dict, elements::Dict) -> Dicttype
+    dictionary_elements(Dicttype = Dict, elements::Dictionary) -> Dicttype
+    dictionary_elements(Dicttype = Dict, elements::ElementsVector) -> Dicttype
 
-Create a dictionary from element-number pairs. As elements can be duplicated in the original vector, the new dictionary is convenient for updating elements number.
+Create a dictionary from any elements containers. As elements can be duplicated in some containers and no duplication in a dictionary, the new dictionary is convenient for updating elements number.
 """
 dictionary_elements(elements) = dictionary_elements(Dict, elements)
-dictionary_elements(::Type{Dict}, elements::Vector{<: Pair}) = Dict(pairs(dictionary_elements(Dictionary, elements)))
-dictionary_elements(::Type{Dictionary}, elements::Vector{<: Pair}) = groupsum(first, last, elements)
+dictionary_elements(::Type{Dict}, elements::Vector{<:Pair}) = Dict(pairs(dictionary_elements(Dictionary, elements)))
+dictionary_elements(::Type{Dictionary}, elements::Vector{<:Pair}) = groupsum(first, last, elements)
 dictionary_elements(::Type{Dict}, elements::Dict) = elements
 dictionary_elements(::Type{Dictionary}, elements::Dict) = Dictionary(keys(elements), values(elements))
 dictionary_elements(::Type{Dict}, elements::Dictionary) = Dict(pairs(elements))
@@ -228,7 +230,7 @@ dictionary_elements(::Type{Dict}, elements::ElementsVector) = Dict(elements)
 dictionary_elements(::Type{Dictionary}, elements::ElementsVector) = Dictionary(elements.elements, elements.numbers)
 
 """
-    gain_elements(elements::Vector{<: Pair}, y...) -> Vector{<: Pair}
+    gain_elements(elements::Vector{<:Pair}, y...) -> Vector{<:Pair}
     gain_elements(elements::Dict, y...) -> Dict
     gain_elements(elements::Dictionary, y...) -> Dictionary
     gain_elements(elements::ElementVector, y...) -> ElementVector
@@ -238,7 +240,7 @@ Add elements in `y` to copied `elements`.
 gain_elements(elements, y...) = gain_elements!(copy(elements), y...)
 
 """
-    gain_elements!(elements::Vector{<: Pair}, y...) -> Vector{<: Pair}
+    gain_elements!(elements::Vector{<:Pair}, y...) -> Vector{<:Pair}
     gain_elements!(elements::Dict, y...) -> Dict
     gain_elements!(elements::Dictionary, y...) -> Dictionary
     gain_elements!(elements::ElementVector, y...) -> ElementVector
@@ -259,7 +261,7 @@ function gain_elements!(elements::Dictionary, y...)
     filter!(!=(0), elements)
 end
 
-function gain_elements!(elements::Vector{<: Pair}, y...)
+function gain_elements!(elements::Vector{<:Pair}, y...)
     for d in y 
         _gain_elements!(elements, d)
     end
@@ -290,7 +292,7 @@ function __gain_elements!(elements::Dictionary, y)
     end
 end
 
-function __gain_elements!(elements::Vector{<: Pair}, y)
+function __gain_elements!(elements::Vector{<:Pair}, y)
     for k in y
         last(k) != 0 && push!(elements, k)
     end
@@ -350,7 +352,7 @@ function parallel_gain_elements!(els::Vector{Vector{ElementsVector}})
 end
 
 """
-    loss_elements(elements::Vector{<: Pair}, y...) -> Vector{<: Pair}
+    loss_elements(elements::Vector{<:Pair}, y...) -> Vector{<:Pair}
     loss_elements(elements::Dict, y...) -> Dict
     loss_elements(elements::Dictionary, y...) -> Dictionary
     loss_elements(elements::ElementVector, y...) -> ElementVector
@@ -360,7 +362,7 @@ Substract elements in `y` from copied `elements`.
 loss_elements(elements, y...) = loss_elements!(copy(elements), y...)
 
 """
-    loss_elements!(elements::Vector{<: Pair}, y...) -> Vector{<: Pair}
+    loss_elements!(elements::Vector{<:Pair}, y...) -> Vector{<:Pair}
     loss_elements!(elements::Dict, y...) -> Dict
     loss_elements!(elements::Dictionary, y...) -> Dictionary
     loss_elements!(elements::ElementVector, y...) -> ElementVector
@@ -381,7 +383,7 @@ function loss_elements!(elements::Dictionary, y...)
     filter!(!=(0), elements)
 end
 
-function loss_elements!(elements::Vector{<: Pair}, y...)
+function loss_elements!(elements::Vector{<:Pair}, y...)
     for d in y 
         _loss_elements!(elements, d)
     end
@@ -412,7 +414,7 @@ function __loss_elements!(elements::Dictionary, y)
     end
 end
 
-function __loss_elements!(elements::Vector{<: Pair}, y)
+function __loss_elements!(elements::Vector{<:Pair}, y)
     for (k, v) in y
         v != 0 && push!(elements, k => -v)
     end

@@ -1,7 +1,10 @@
 """
-    Ionization(chemicaltable::Table; adduction = AdductIon, threading = nothing, chemicalparser = ChemicalExpressionParser(), adductparser = AdductParser(), threshold = rcrit(1e-4), kwargs...) -> Table
+    Ionization(chemicaltable::Table; [adduct, abundance, proportion,] adduction = AdductIon, chemicalparser = ChemicalExpressionParser(), adductparser = AdductParser(), threshold = rcrit(1e-4), threading = nothing, kwargs...) -> Table
+    Ionization(chemical::AbstractString; chemicalparser = ChemicalExpressionParser(), kwargs...) -> Table
+    Ionization(chemical::AbstractChemical; adduct, adduction = AdductIon, adductparser = AdductParser(), kwargs...) -> Table
+    Ionization(chemical::AbstractAdductIon; kwargs...) -> Table
 
-Ionization of `chemicaltable.Chemical`. The returned table contains isotopologues of adduct ions and can be further processed by other spectrum related function such as `MSScan`, `Isolation`, etc. 
+Ionization of `chemicaltable.Chemical`. The returned table contains isotopologues of adduct ions and can be further processed by other spectrum related function such as `MSScan`, `Isolation`, and etc. 
 
 # Keyword Arguments
 * `adduction`: constructor for adduct ion. 
@@ -11,6 +14,8 @@ Ionization of `chemicaltable.Chemical`. The returned table contains isotopologue
 * `abundance` sets the abundance of the chemical. It can also be column `Abundance` in `chemicaltable`. 
 * `proportion`: proportion of adduct ion relative to original chemical. For individualizing adducts, use column `Proportion` in `chemicaltable`. The length of each elements should macthes to that of `adduct`.
 * `threshold` can be a number or criteria, representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
+* `threading`: force to use multiple threads (`true`) or single thread (`false`); `nothing` lets the program determine. 
+Other `kwargs` are used by function [`Isotopologues`](@ref).
 """
 function Ionization(mztable::Table; adduction = AdductIon, threading = nothing, chemicalparser = ChemicalExpressionParser(), adductparser = AdductParser(), threshold = rcrit(1e-4), kwargs...)
     :Chemical in propertynames(mztable) || throw(ArgumentError("No column `Chemical` in input table."))
@@ -47,6 +52,9 @@ function Ionization(mztable::Table; adduction = AdductIon, threading = nothing, 
     proportion = map(vectorize, proportion)
     id = vcat(([(i, j) for j in eachindex(adduct[i])] for i in eachindex(mztable))...)
     rn = min(length(id), Threads.nthreads())
+    if rn == 1 
+        threading = false 
+    end
     if isnothing(threading)
         ab = mean(abundance)
         s = mean(length(chemicalelements(x)) for x in mztable.Chemical)
@@ -74,21 +82,25 @@ function Ionization(mztable::Table; adduction = AdductIon, threading = nothing, 
 end
 
 Ionization(v::Vector; kwargs...) = Ionization(Table(; Chemical = v); kwargs...) 
+Ionization(x::AbstractString; chemicalparser = ChemicalExpressionParser(), kwargs...) = Ionization(parse_chemical(chemicalparser, x); kwargs...) 
+Ionization(x::AbstractChemical; adduction = AdductIon, adduct, adductparser = AdductParser(), kwargs...) = Isotopologues(ionize(adduction, x; parse_adduct(adductparser, adduct)...); kwargs...) 
+Ionization(x::AbstractAdductIon; kwargs...) = Isotopologues(x; kwargs...) 
 Ionization(::Isobars; kwargs...) = throw(ArgumentError("`Isobars` is not supported by `Ionization`."))
 Ionization(::Isotopomers; kwargs...) = throw(ArgumentError("`Isotopomers` is not supported by `Ionization`."))
 
 """
-    MSScan([msanalyzer = TOF(),] mztable; min_bin_fwhm = 50) -> Union{Spectrum, Nothing}
-    MSScan([msanalyzer = TOF(),] spectrum; min_bin_fwhm = 50) -> Union{Spectrum, Nothing}
+    MSScan(msanalyzer = TOF(), mztable; min_bin_fwhm = 50) -> Union{Spectrum, Nothing}
+    MSScan(msanalyzer = TOF(), spectrum; min_bin_fwhm = 50) -> Union{Spectrum, Nothing}
 
 Perform MS scan. Theoretical m/z signals are convoluted with `msanalyzer.window`. 
 
+# Arguments
 * `msanalyzer::AbstractMSAnalyzer`: a MS analyzer to perform MS Scan. See documentation of specific analyzer for detailed settings.
 * `mztable::Table`: a table containing columns
     * `Abundance1`, `Abundance2`, ..., `Abundancen`. The last column will be utilized.
     * `MZ1`, `MZ2`, ..., `MZn`. The last column will be utilized.
 * `spectrum::Spectrum`: `spectrum.table` is utilized as `mztable`.
-* `min_bin_fwhm`: minimal number of bins within fwhm. 
+* `min_bin_fwhm::Int`: minimal number of bins within fwhm. 
 """
 function MSScan(msanalyzer::AbstractMSAnalyzer, mztable::Table; min_bin_fwhm = 50)
     isempty(mztable) && return nothing
@@ -147,11 +159,12 @@ MSScan(mztable; min_bin_fwhm = 50) = MSScan(TOF(), mztable; min_bin_fwhm)
 MSScan(msanalyzer::AbstractMSAnalyzer, spec::Spectrum; min_bin_fwhm = 50) = MSScan(msanalyzer, spec.table; min_bin_fwhm)
 
 """
-    AllIons([mz_range = nothing,] mztable) -> Table
-    AllIons([mz_range = nothing,] spectrum) -> Table
+    AllIons(mz_range = nothing, mztable) -> Table
+    AllIons(mz_range = nothing, spectrum) -> Table
 
 Allow all Ions within m/z range entering the next MS stage. 
 
+# Arguments
 * `mz_range::Union{Nothing, Tuple}`: nothing (indicating all ions) or a tuple of m/z lower bound an d upper bound.
 * `mztable::Table`: a table containing columns
     * `MZ1`, `MZ2`, ..., `MZn`. The last column will be utilized.
@@ -175,6 +188,7 @@ AllIons(mz_range, spec::Spectrum) = AllIons(mz_range, spec.table)
 
 Isolating target ion(s) with specific m/z values and resolutions to enter the next MS stage. 
 
+# Arguments
 * `msanalyzer::AbstractMSAnalyzer`: a MS analyzer to perform MS filtering. See documentation of specific analyzer for detailed settings.
 * `mztable::Table`: a table containing columns    
     * `ID`: ID tuples. Each elements represents ID number of ions of each MS stage. 
@@ -216,6 +230,7 @@ end
 
 Selected ion monitoring. 
 
+# Arguments
 * `transitiontable::Table`: each row represents a transition. Use column `Transition` (optional) for specifying transition name. Other columns must be in analysis-fragmentation-analysis order. Analysis columns contain MS analyzers and Fragmentation columns contain producttables (See `Fragmentation` for detail).
 * `mztable::Table`: a table containing columns    
     * `ID`: ID tuples. Each elements represents ID number of ions of each MS stage. 
@@ -261,6 +276,7 @@ end
 
 Fragmentation of `precursor_table.Chemical` or `spectrum.table.Chemical` into `product_table.Product`.
 
+# Arguments
 * `producttable::Table`: a table containing columns
     * `Product`: products of each precursor. 
     * `Proportion`: proportion of fragmentation of each product relative to precursor signal. This column is optional; the default is that each product share precursor signals equally. 
@@ -367,8 +383,9 @@ Fragmentation(producttable::Table, spec::Spectrum; kwargs...) = Fragmentation(pr
 
 Extract peaks from a spectrum or SIM.
 
+# Arguments
 * `abundance` sets the abundance of the peak specified by `abtype`. 
-* `abtype`
+* `abtype`.
     * `:max`: the largest peak.
     * `:list`: sum of listed peaks.
     * `:raw`: no abundance normalization.

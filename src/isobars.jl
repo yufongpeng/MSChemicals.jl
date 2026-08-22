@@ -93,10 +93,11 @@ end
 
 A table listing all target chemicals and their isobars grouped by isomeric state based on `isotope` from `ci`.
 
+# Arguments
 * `isotope::AbstractString`: a minor isotope.
 * `threshold` can be a number or criteria, representing the lower limit of proportion of isobar affecting the target chemical. 
-* `error_elution::Vector{<: Vector}`: error function(s) of each elution dimension.
-* `error_mz::Vector{<: Vector}`: error function(s) of each msanalyzer.
+* `error_elution::Vector{<:Vector}`: error function(s) of each elution dimension.
+* `error_mz::Vector{<:Vector}`: error function(s) of each msanalyzer.
 """
 function isobar_table(ci::CoelutingIsobars; 
         isotope = "[13C]",

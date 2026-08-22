@@ -14,7 +14,7 @@ retentiontime(isotopomers::Isotopomers; kwargs...) = retentiontime(chemicalparen
 retentiontime(isotopomers::Groupedisotopomers; kwargs...) = retentiontime(chemicalparent(isotopomers); kwargs...)
 retentiontime(ct::ChemicalTransition; kwargs...) = retentiontime(chemicalentity(ct); kwargs...)
 
-msstage(isobars::Isobars{<: ChemicalTransition}; kwargs...) = only(unique(msstage.(chemicalspecies(isobars); kwargs...)))
+msstage(isobars::Isobars{<:ChemicalTransition}; kwargs...) = only(unique(msstage.(chemicalspecies(isobars); kwargs...)))
 msstage(ct::ChemicalTransition; kwargs...) = length(ct.transition)
 
 _isobar_species_attr(fn, isobars::Isobars, args...; kwargs...) = mean(fn.(chemicalspecies(isobars), args...; kwargs...), weights(isobars.abundance))
@@ -25,7 +25,7 @@ _isobar_species_attr(fn, isobars::Isobars, args...; kwargs...) = mean(fn.(chemic
 
 Monoisotopic mass of formula, and elements.
 """
-function mmi(elements::Union{<: Vector{<: Pair}, <: Dict}, net_charge = 0; loss = false)
+function mmi(elements::Union{<:Vector{<:Pair}, <:Dict}, net_charge = 0; loss = false)
     # Vector of el => #el
     weight = elements_mass()[""]
     for (el, n) in elements
@@ -76,7 +76,7 @@ vec_mmi_fix(x, y; kwargs...) = [mmi(m) + y for m in x]
 
 Molar mass of formula, and elements.
 """
-function molarmass(elements::Union{<: Vector{<: Pair}, <: Dict}, net_charge = 0; loss = false)
+function molarmass(elements::Union{<:Vector{<:Pair}, <:Dict}, net_charge = 0; loss = false)
     # Vector of el => #el
     weight = elements_mass()[""]
     for (el, n) in elements

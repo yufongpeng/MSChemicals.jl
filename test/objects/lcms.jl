@@ -135,8 +135,8 @@ ms1 = Table(; Chemical = repeat([GQ1, GD3], 1000))
 
 @info "Running HRMS and MS/MS"
 
-Ionization(repeat([GQ1, GD3], 1000); abundance = 10, proportion = [100, 10], adduct = ["[M+2H]2+", "[M+2H-H2O]2+"])
-Ionization(ms1; adduct = ["[M+2H]2+", "[M+2H-H2O]2+"])
+ion1 = Ionization(repeat([GQ1, GD3], 1000); abundance = 10, proportion = [0.1, 10], adduct = ["[M+2H]2+", "[M+2H-H2O]2+"])
+ion2 = Ionization(ms1; adduct = ["[M+2H]2+", "[M+2H-H2O]2+"])
 
 spec1 = @p ms0 |> Ionization(; abtype = :list) |> MSScan
 spec2 = @p spec1 |> Isolation(Quadrupole(1210.588728; fwhm = 1.3, offset = 0.3)) |> Fragmentation(pt; threading = false) |> MSScan

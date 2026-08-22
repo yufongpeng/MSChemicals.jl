@@ -6,7 +6,7 @@
 ==(x::Isotopomers, y::Isotopomers) = x.parent == y.parent && x.isotopes == y.isotopes
 ==(x::Groupedisotopomers, y::Groupedisotopomers) = x.parent == y.parent && x.state == y.state && x.isotope == y.isotope && all(splat(==), zip(x.isotopes, y.isotopes)) && all(splat(isapprox), zip(x.abundance, y.abundance))
 ==(x::AdductIon, y::AdductIon) = x.core == y.core && x.adduct == y.adduct && x.ncore == y.ncore
-==(x::T, y::T) where {T <: AbstractChemicalWrapper} = x.chemical == y.chemical
+==(x::T, y::T) where {T<:AbstractChemicalWrapper} = x.chemical == y.chemical
 ==(x::ElementalScheme{T}, y::ElementalScheme{T}) where T = x.chemical == y.chemical
 ==(x::StructuralElementalScheme, y::StructuralElementalScheme) = x.structuralscheme == y.structuralscheme && x.elementalscheme == y.elementalscheme
 ==(x::ChemicalSchema, y::ChemicalSchema) = x.schema == y.schema 
@@ -172,7 +172,7 @@ Broadcast.broadcastable(x::AbstractScheme) = Ref(x)
 -(x::IntervalSet, y::Number) = IntervalSet([r - y for r in x.items])
 *(x::IntervalSet, y::Number) = IntervalSet([r * y for r in x.items])
 /(x::IntervalSet, y::Number) = IntervalSet([r / y for r in x.items])
-function +(x::T, y::Number) where {F, L <: Bound, R <: Bound, T <: Interval{F, L, R}}  
+function +(x::T, y::Number) where {F, L<:Bound, R<:Bound, T<:Interval{F, L, R}}  
     if L == Unbounded
         f = nothing
     elseif isinf(x.first) && isinf(y) && y > 0
@@ -191,7 +191,7 @@ function +(x::T, y::Number) where {F, L <: Bound, R <: Bound, T <: Interval{F, L
     RR = isnothing(l) ? Unbounded : isinf(l) ? Open : R
     Interval{F, LL, RR}(f, l)
 end
-function -(x::T, y::Number) where {F, L <: Bound, R <: Bound, T <: Interval{F, L, R}}  
+function -(x::T, y::Number) where {F, L<:Bound, R<:Bound, T<:Interval{F, L, R}}  
     if L == Unbounded
         f = nothing
     elseif isinf(x.first) && isinf(y) && y < 0
@@ -210,7 +210,7 @@ function -(x::T, y::Number) where {F, L <: Bound, R <: Bound, T <: Interval{F, L
     RR = isnothing(l) ? Unbounded : isinf(l) ? Open : R
     Interval{F, LL, RR}(f, l)
 end
-function *(x::T, y::Number) where {F, L, R, T <: Interval{F, L, R}}  
+function *(x::T, y::Number) where {F, L, R, T<:Interval{F, L, R}}  
     if L == Unbounded
         f = nothing
     elseif isinf(x.first) && y == 0
@@ -233,7 +233,7 @@ function *(x::T, y::Number) where {F, L, R, T <: Interval{F, L, R}}
         Interval{F, LL, RR}(f, l)
     end
 end
-function /(x::T, y::Number) where {F, L , R, T <: Interval{F, L, R}} 
+function /(x::T, y::Number) where {F, L , R, T<:Interval{F, L, R}} 
     if L == Unbounded
         f = nothing
     elseif isinf(x.first) && isinf(y)

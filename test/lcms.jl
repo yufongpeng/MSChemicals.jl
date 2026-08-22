@@ -1,4 +1,9 @@
-@info "Running tests for Spectrum and CoelutingIsobars"
+@info "Running tests for MS analysis, Spectrum and CoelutingIsobars"
+
+@testset "Ionization" begin 
+    @test Ionization("[C6H12O6]+") == Ionization("C6H12O6"; adduct = "[M]+")
+    @test first(ion1.Abundance1) == first(ion2.Abundance1)
+end
 
 @testset "MS analyzer" begin 
     @test all((q.window isa W for (q, W) in zip(qa, [MSC.SuperGaussianWindow, MSC.GaussianWindow, MSC.CosineWindow, MSC.TukeyWindow, MSC.RectWindow])))
