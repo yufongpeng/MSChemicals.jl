@@ -1,32 +1,9 @@
 """
-    measure_name(fn[, error]) -> String 
+    resolving_power(ms::AbstractMSAnalyzer, mz::Real) -> Real
 
-Common name of measurement `fn` with or without `error`.
+Resolving power of `ms` at `mz`.
 """
-measure_name(fn) = repr(fn)
-measure_name(fn::typeof(retentiontime)) = "RT"
-measure_name(fn::typeof(mz)) = "MZ"
-measure_name(fn::typeof(mmi)) = "Mmi"
-measure_name(fn::typeof(molarmass)) = "M"
-measure_name(fn::typeof(charge)) = "Z"
-measure_name(s::AbstractString) = string(s)
-measure_name(s::Symbol) = string(s)
-measure_name(fn, error::typeof(value_error)) = string("Δ", measure_name(fn))
-measure_name(fn, error::typeof(relative_error)) = string("Δ", measure_name(fn), "/", measure_name(fn))
-measure_name(fn, error::typeof(relative_error_mean)) = string("Δ", measure_name(fn), "/", measure_name(fn))
-measure_name(fn, error::typeof(percentage_error)) = string("Δ", measure_name(fn), "/", measure_name(fn), "(%)")
-measure_name(fn, error::typeof(percentage_error_mean)) = string("Δ", measure_name(fn), "/", measure_name(fn), "(%)")
-measure_name(fn, error::typeof(ppm_error)) = string("Δ", measure_name(fn), "/", measure_name(fn), "(ppm)")
-measure_name(fn, error::typeof(ppm_error_mean)) = string("Δ", measure_name(fn), "/", measure_name(fn), "(ppm)")
-
-"""
-    measure_error(fn) -> Vector{<:Function}
-
-Default error functions for measurement `fn`.
-"""
-measure_error(::typeof(retentiontime)) = [value_error]
-measure_error(::AbstractMSAnalyzer) = [value_error, ppm_error]
-measure_error(fn) = [value_error]
+resolving_power(ms::AbstractMSAnalyzer, mz) = mz / fwhm_mz(ms, mz)
 
 """
     fwhm_mz(ms::AbstractMSAnalyzer, mz::Real) -> Real
@@ -54,32 +31,18 @@ msanalyzer_name(::Orbitrap) = "Orbitrap"
 msanalyzer_name(::FTICR) = "FTICR"
 msanalyzer_name(x::MSAnalyzer{T}) where T = string("MS-Analyzer with ", window_name(x.window))
 
-"""
-    resolving_power(ms::AbstractMSAnalyzer, mz::Real) -> Real
+measure_error(::AbstractMSAnalyzer) = [value_error, ppm_error]
 
-Resolving power of `ms` at `mz`.
-"""
-resolving_power(ms::AbstractMSAnalyzer, mz) = mz / fwhm_mz(ms, mz)
+msanalyzer_type(::MSAnalyzer) = MSAnalyzer
+msanalyzer_type(::Quadrupole) = Quadrupole
+msanalyzer_type(::QIT) = QIT
+msanalyzer_type(::LIT) = LIT
+msanalyzer_type(::TOF) = TOF
+msanalyzer_type(::Orbitrap) = Orbitrap
+msanalyzer_type(::FTICR) = FTICR
 
-gaussian_norm(x::Real, μ::Real, σ2::Real) = exp(-(x - μ) ^ 2 / 2 / σ2)
-supergaussian_norm(x::Real, μ::Real, σ::Real, n::Real) = exp(-((x - μ) / sqrt(2) / σ) ^ n)
-sgaussian_norm(ν::Real, t) = exp(-ν ^ 2 / 2 / t)
-sgaussian_norm(ν::AbstractRange, t::T) where T = sgaussian_norm!(zeros(T, length(ν)), ν, t)
-function sgaussian_norm!(u::AbstractVector, ν::AbstractRange, t) 
-    delta = step(ν)
-    start = ν.start
-    num = exp(-start ^ 2 / 2t)
-    deltanum1 = exp(-delta ^ 2 / 2t)
-    deltanum2 = exp(-delta / t)
-    prev_ν = start - delta
-    prev_num = num / deltanum1 / deltanum2 ^ prev_ν
-    for i in eachindex(ν)
-        u[i] = prev_num * deltanum1 * deltanum2 ^ prev_ν
-        prev_num = u[i]
-        prev_ν += delta
-    end
-    u
-end
+replace_mz(msanalyzer::T, mz) where {T<:AbstractMSAnalyzer} = 
+    msanalyzer_type(msanalyzer)((f == :mz ? mz : getfield(msanalyzer, f) for f in fieldnames(T))...)
 
 """
     window_name(window::AbstractWindow) -> String
@@ -93,6 +56,20 @@ window_name(::TukeyWindow) = "Tukey Window"
 window_name(::CosineWindow) = "Cosine Window"
 window_name(::RectWindow) = "Rectangular Window"
 window_name(::PowerCosineWindow) = "Power Cosine Window"
+
+"""
+    window_parameter(msanalyzer::AbstractMSAnalyzer, mz)
+
+Parameters of the window function `msanalyzer.window` with `mz` value. It typically returns the center and dispersion of the window. See documentation of each window for details.
+"""
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:GaussianTailedUniformWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:GaussianWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ) ^ 2 / log(256))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:FixedTaperTukeyWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:TukeyWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:CosineWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:PowerCosineWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:RectWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
+window_parameter(msanalyzer::AbstractMSAnalyzer{<:SuperGaussianWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ) / (sqrt(8) * log(2) ^ (1 / msanalyzer.window.power)))
 
 (::SampledGaussianWindow)(ν, t) = sgaussian_norm(ν, t)
 (::GaussianWindow)(x, μ, σ2) = gaussian_norm(x, μ, σ2)
@@ -147,25 +124,31 @@ function (f::GaussianTailedUniformWindow)(x, μ::S, fwhm::T) where {S, T}
     end
 end
 
-"""
-    window_parameter(msanalyzer::AbstractMSAnalyzer, mz)
-
-Parameters of the window function `msanalyzer.window` with `mz` value. It typically returns the center and dispersion of the window. See documentation of each window for details.
-"""
-window_parameter(msanalyzer::AbstractMSAnalyzer{<:GaussianTailedUniformWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<:GaussianWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ) ^ 2 / log(256))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<:FixedTaperTukeyWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<:TukeyWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<:CosineWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<:PowerCosineWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<:RectWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ))
-window_parameter(msanalyzer::AbstractMSAnalyzer{<:SuperGaussianWindow}, μ) = (μ, fwhm_mz(msanalyzer, μ) / (sqrt(8) * log(2) ^ (1 / msanalyzer.window.power)))
+gaussian_norm(x::Real, μ::Real, σ2::Real) = exp(-(x - μ) ^ 2 / 2 / σ2)
+supergaussian_norm(x::Real, μ::Real, σ::Real, n::Real) = exp(-((x - μ) / sqrt(2) / σ) ^ n)
+sgaussian_norm(ν::Real, t) = exp(-ν ^ 2 / 2 / t)
+sgaussian_norm(ν::AbstractRange, t::T) where T = sgaussian_norm!(zeros(T, length(ν)), ν, t)
+function sgaussian_norm!(u::AbstractVector, ν::AbstractRange, t) 
+    delta = step(ν)
+    start = ν.start
+    num = exp(-start ^ 2 / 2t)
+    deltanum1 = exp(-delta ^ 2 / 2t)
+    deltanum2 = exp(-delta / t)
+    prev_ν = start - delta
+    prev_num = num / deltanum1 / deltanum2 ^ prev_ν
+    for i in eachindex(ν)
+        u[i] = prev_num * deltanum1 * deltanum2 ^ prev_ν
+        prev_num = u[i]
+        prev_ν += delta
+    end
+    u
+end
 
 """
     discrete_window(msanalyzer::AbstractMSAnalyzer, mz::Vector, binsize::Real, nbin_multiplier::Real, height::Real) 
     discrete_window(window::AbstractWindow, fwhm::Real, binsize::Real, nbin_multiplier::Real, height::Real)
 
-Discrete values of `window` with `fwhm` or ms analyzer `msanalyzer.window` at `mz` values (FWHM is computed through function `fwhm_mz`). 
+Discrete values of `window` with `fwhm` or ms analyzer `msanalyzer.window` at `mz` values (FWHM is computed through function [`fwhm_mz`](@ref)). 
 `binsize` sets the size of m/z bin, `nbin_multiplier` sets the interval between sampled bins, and `height` sets minimal window value.
 """
 function discrete_window(msanalyzer::AbstractMSAnalyzer, μ::Vector{T}, binsize, nbin_multiplier, height) where T
@@ -300,49 +283,4 @@ function estimate_t(window::SuperGaussianWindow, bsqrtt, ihwhml, ihwhmr, log_n =
         bsqrtt += (0.5 - (hl + hr) / 2) / (hl - hr)
         return estimate_t(window, bsqrtt, ihwhml, ihwhmr, log_n + 1)
     end
-end
-
-function find_nearest_peak(alg::LocalMaxima, convolution, i, k)
-    j = findfirst(>(alg.threshold * maximum(k)), k)
-    ihwhm = floor(Int, length(k) / 2) - j + 1
-    peak = [convolution[i], convolution[i]]
-    dir = [true, true]
-    start = [false, false]
-    ibin = [i, i]
-    for j in 0:ihwhm
-        if first(dir)
-            if convolution[i - j - 1] > first(peak)
-                start[begin] = true
-                peak[begin] = convolution[i - j - 1]
-            else
-                dir[begin] = false
-                ibin[begin] = i - j
-            end
-        end
-        if last(dir)
-            if convolution[i + j + 1] > last(peak) 
-                start[end] = true
-                peak[end] = convolution[i + j + 1]
-            else
-                dir[end] = false
-                ibin[end] = i + j
-            end
-        end
-        dir'start > 0 || break 
-    end
-    r = @. (!)(dir) * start
-    id = if !any(start)
-        ibin[begin]
-    elseif all(r) && peak[begin] < peak[end]
-        ibin[end]
-    elseif all(r)
-        ibin[begin]
-    elseif first(r)
-        ibin[begin]
-    elseif last(r)
-        ibin[end]
-    else
-        nothing 
-    end
-    id
 end

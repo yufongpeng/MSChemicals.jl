@@ -4,16 +4,17 @@
     Ionization(chemical::AbstractChemical; adduct, adduction = AdductIon, adductparser = AdductParser(), kwargs...) -> Table
     Ionization(chemical::AbstractAdductIon; kwargs...) -> Table
 
-Ionization of `chemicaltable.Chemical`. The returned table contains isotopologues of adduct ions and can be further processed by other spectrum related function such as `MSScan`, `Isolation`, and etc. 
+Ionization of `chemicaltable.Chemical`. 
+The returned table contains isotopologues of adduct ions and can be further processed by other spectrum related function such as [`MSScan`](@ref), [`Isolation`](@ref), and etc. 
 
 # Keyword Arguments
 * `adduction`: constructor for adduct ion. 
-* `chemicalparser::AbstractChemicalParser`: parser for `string` chemical input. The default parser is `ChemicalTransitionParser(ChemicalExpressionParser())`.
-* `adductparser::AbstractAdductParser`: parser for `string` adduct input. The default parser is `AdductParser()`.
+* `chemicalparser::AbstractChemicalParser`: parser for `string` chemical input. The default parser is `ChemicalTransitionParser(ChemicalExpressionParser())` (See [`ChemicalTransitionParser`](@ref)).
+* `adductparser::AbstractAdductParser`: parser for `string` adduct input. The default parser is `AdductParser()` (See [`AdductParser`](@ref)).
 * `adduct`: adducts being parsed by `adductparser`. The parsed adduct is a named tuple and used as keyword arguments of function `ionize` with argument `adduction` and each chemical. For individualizing adducts, use column `Adduct` in `chemicaltable`.
 * `abundance` sets the abundance of the chemical. It can also be column `Abundance` in `chemicaltable`. 
 * `proportion`: proportion of adduct ion relative to original chemical. For individualizing adducts, use column `Proportion` in `chemicaltable`. The length of each elements should macthes to that of `adduct`.
-* `threshold` can be a number or criteria, representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
+* `threshold` can be a number or [`Criteria`](@ref), representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
 * `threading`: force to use multiple threads (`true`) or single thread (`false`); `nothing` lets the program determine. 
 Other `kwargs` are used by function [`Isotopologues`](@ref).
 """
@@ -165,7 +166,7 @@ MSScan(msanalyzer::AbstractMSAnalyzer, spec::Spectrum; min_bin_fwhm = 50) = MSSc
 Allow all Ions within m/z range entering the next MS stage. 
 
 # Arguments
-* `mz_range::Union{Nothing, Tuple}`: nothing (indicating all ions) or a tuple of m/z lower bound an d upper bound.
+* `mz_range::Union{Nothing, Tuple}`: nothing (indicating all ions) or a tuple of m/z lower bound and upper bound.
 * `mztable::Table`: a table containing columns
     * `MZ1`, `MZ2`, ..., `MZn`. The last column will be utilized.
 * `spectrum::Spectrum`: `spectrum.table` is utilized as `mztable`.
@@ -196,7 +197,7 @@ Isolating target ion(s) with specific m/z values and resolutions to enter the ne
     * `MZ1`, `MZ2`, ..., `MZn`. 
 * `spectrum::Spectrum`: `spectrum.table` is utilized as `mztable`.
 * `stage::Int`: MS stage. Default `nothing` for the last MS stage.
-* `threshold` can be a number or criteria (absolute and/or relative to maximum), representing the lower limit of abundance. 
+* `threshold` can be a number or [`Criteria`](@ref) (absolute and/or relative to maximum), representing the lower limit of abundance. 
 """
 function Isolation(msanalyzer::AbstractMSAnalyzer, mztable::Table; stage = nothing, threshold = rcrit(1e-4)) 
     isempty(mztable) && return mztable
@@ -231,13 +232,15 @@ end
 Selected ion monitoring. 
 
 # Arguments
-* `transitiontable::Table`: each row represents a transition. Use column `Transition` (optional) for specifying transition name. Other columns must be in analysis-fragmentation-analysis order. Analysis columns contain MS analyzers and Fragmentation columns contain producttables (See `Fragmentation` for detail).
+* `transitiontable::Table`: each row represents a transition. Use column `Transition` (optional) for specifying transition name. 
+Other columns must be in analysis-fragmentation-analysis order. 
+Analysis columns contain MS analyzers and Fragmentation columns contain producttables (See `Fragmentation` for detail).
 * `mztable::Table`: a table containing columns    
     * `ID`: ID tuples. Each elements represents ID number of ions of each MS stage. 
     * `Abundance1`
     * `MZ1`
 * `spectrum::Spectrum`: `spectrum.table` is utilized as `mztable`.
-* `threshold` can be a number or criteria (absolute and/or relative to maximum), representing the lower limit of abundance. 
+* `threshold` can be a number or [`Criteria`](@ref) (absolute and/or relative to maximum), representing the lower limit of abundance. 
 * `threading`: force to use multiple threads (`true`) or single thread (`false`); `nothing` lets the program determine. 
 """
 function SelectedIonMonitor(transitiontable::Table, mztable::Table; threading = nothing, threshold = rcrit(1e-4)) 
@@ -286,7 +289,7 @@ Fragmentation of `precursor_table.Chemical` or `spectrum.table.Chemical` into `p
     * `Abundance1`, `Abundance2`, ..., `Abundancen`. The last column will be utilized.
     * `MZ1`, `MZ2`, ..., `MZn`. The last column will be utilized.
 * `spectrum::Spectrum`: `spectrum.table` is utilized as `precursortable`.
-* `threshold` can be a number or criteria, representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
+* `threshold` can be a number or [`Criteria`](@ref), representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
 * `threading`: force to use multiple threads (`true`) or single thread (`false`); `nothing` lets the program determine. 
 """
 function Fragmentation(producttable::Table, mztable::Table; chemicalparser = ChemicalExpressionParser(), threading = nothing, threshold = rcrit(1e-4))
@@ -381,7 +384,7 @@ Fragmentation(producttable::Table, spec::Spectrum; kwargs...) = Fragmentation(pr
     peak_table(spectrum::Spectrum; alg = LocalMaxima(), abundance = 1, abtype = :max, threshold = rcrit(1e-4)) -> Table
     peak_table(transitiontable::Table; groupedisotopomers = true, isotope = "[13C]") -> Table
 
-Extract peaks from a spectrum or SIM.
+Extract peaks from a [`Spectrum`](@ref) or [`SelectedIonMonitor`](@ref).
 
 # Arguments
 * `abundance` sets the abundance of the peak specified by `abtype`. 
@@ -389,7 +392,7 @@ Extract peaks from a spectrum or SIM.
     * `:max`: the largest peak.
     * `:list`: sum of listed peaks.
     * `:raw`: no abundance normalization.
-* `threshold` can be a number or criteria (absolute and/or relative to `abundance`), representing the lower limit of abundance. 
+* `threshold` can be a number or [`Criteria`](@ref) (absolute and/or relative to `abundance`), representing the lower limit of abundance. 
 * `groupedisotopomers`: whether group isotopologues by isotopomer state based on `isotope`.
 * `isotope::String`: minor isotope.
 """
@@ -449,6 +452,51 @@ function peak_table(transitiontable::Table; groupedisotopomers = true, isotope =
     else
         Table(collect(NamedTuple, gt))
     end
+end
+
+function find_nearest_peak(alg::LocalMaxima, convolution, i, k)
+    j = findfirst(>(alg.threshold * maximum(k)), k)
+    ihwhm = floor(Int, length(k) / 2) - j + 1
+    peak = [convolution[i], convolution[i]]
+    dir = [true, true]
+    start = [false, false]
+    ibin = [i, i]
+    for j in 0:ihwhm
+        if first(dir)
+            if convolution[i - j - 1] > first(peak)
+                start[begin] = true
+                peak[begin] = convolution[i - j - 1]
+            else
+                dir[begin] = false
+                ibin[begin] = i - j
+            end
+        end
+        if last(dir)
+            if convolution[i + j + 1] > last(peak) 
+                start[end] = true
+                peak[end] = convolution[i + j + 1]
+            else
+                dir[end] = false
+                ibin[end] = i + j
+            end
+        end
+        dir'start > 0 || break 
+    end
+    r = @. (!)(dir) * start
+    id = if !any(start)
+        ibin[begin]
+    elseif all(r) && peak[begin] < peak[end]
+        ibin[end]
+    elseif all(r)
+        ibin[begin]
+    elseif first(r)
+        ibin[begin]
+    elseif last(r)
+        ibin[end]
+    else
+        nothing 
+    end
+    id
 end
 
 function bin_offset(outmass, binmass, binsize, nbin_multiplier)

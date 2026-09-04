@@ -6,9 +6,10 @@ Get `property` from `chemical`.
 
 This function defaults to finds the `property`, and returns `default` if it is not available. The return value is asserted to be type `type`.
 
-For type `Chemical` and properties other than `name`, `elements` and `formula`, it iterates through `chemical.property`. If no matched property name is found, it returns `default`.
+For type [`Chemical`](@ref) and properties other than `name`, `elements` and `formula`, it iterates through `chemical.property`. 
+If no matched property name is found, it returns `default`.
 
-For type `AbstractAdductIon`, it searches for properties of itself and then the properties of core chemical without specialized methods.
+For type [`AbstractAdductIon`](@ref), it searches for properties of itself and then the properties of core chemical without specialized methods.
 """
 getchemicalproperty(chemical::AbstractChemicalsSchema, property::Symbol, default::T) where T = getchemicalproperty(chemical, property, default, T)
 getchemicalproperty(chemical::AbstractChemicalsSchema, property::Symbol, default::Nothing) = getchemicalproperty(chemical, property, default, Any)
@@ -37,9 +38,9 @@ The name of `chemical`. It should be unique for each chemical object.
 * Species/Transition Level.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:name`.
-    * default: `defaultname(chemical)`.
+    * default: [`defaultname`](@ref).
 
 # Keyword arguments
 * `verbose::Bool` determines whether includes all names or not for chemical species. If `verbose` is false, only the first (most abundant) chemical is included.
@@ -82,14 +83,15 @@ The formula of chemical entity of `chemical`.
 * Entity Level.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty` -> `reverse_formula`.
+1. Function: [`getchemicalproperty`](@ref) -> `reverse_formula`.
     * property: `:formula`.
     * default: `""`.
-2. Function: `chemicalelements` -> `chemicalformula`.
+2. Function: [`chemicalelements`](@ref) -> [`chemicalformula`](@ref).
 
 # Keyword arguments
 * `delim::Union{String, Char}` assigns the delimiter between each element.
-* `unique::Bool` determines whether combines the elements to become unique or not when constructing formula from attribute `chemicalelements`. It defaults to false for type `Chemical` and `FormulaChemical`.
+* `unique::Bool` determines whether combines the elements to become unique or not when constructing formula from attribute [`chemicalelements`](@ref). 
+It defaults to false for type [`Chemical`](@ref) and [`FormulaChemical`](@ref).
 * `ischemical::Bool` determines whether the chemical is a chemical or a scheme. 
 * `loss::Bool` determines whether the chemical is part of chemical loss, and signs are factored out from elements. 
 """
@@ -133,7 +135,7 @@ The elements of chemical entity of `chemical`.
 # Generic Methods
 * `AbstractChemical`: property search.
 * `AbstractAdductIon`: elements combining core chemical and adduct.
-* `AbstractChemicalWrapper`: chemical entity of field `chemical`.
+* `AbstractChemicalWrapper`: chemical elements of field `chemical`.
 * `AbstractScheme`: property search; change of elements.
 * `AbstractStructuralScheme`: throw error.
 
@@ -141,10 +143,10 @@ The elements of chemical entity of `chemical`.
 * Entity Level.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty` -> `reverse_elements`.
+1. Function: [`getchemicalproperty`](@ref) -> `reverse_elements`.
     * property: `:elements`.
     * default: `Pair{String, Int}[]`.
-2. Function: `chemicalformula` -> `chemicalelements`.
+2. Function: [`chemicalformula`](@ref) -> [`chemicalelements`](@ref).
 
 # Keyword Arguments 
 * `loss::Bool` determines whether the chemical is part of chemical loss, and sign flips are propagated into elements.
@@ -195,9 +197,9 @@ The abbreviation of `chemical`.
 * Species/Transition Level.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:abbreviation`.
-    * default: `chemicalname(chemical; kwargs...)`.
+    * default: [`chemicalname`](@ref).
 
 # Keyword arguments
 * `verbose::Bool` determines whether includes all abbreviations or not for chemical species. If `verbose` is false, only the first (most abundant) chemical is included.
@@ -240,7 +242,7 @@ The SMILES of chemical entity of `chemical`.
 * `Groupedisotopomers`: SMILES of the most abundant parent chemical.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:SMILES`.
     * default: `""`.
 """
@@ -260,7 +262,7 @@ The core chemical of `adduct_ion`.
 * Entity Level.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:core`.
     * default: `TypeError`.
 """
@@ -278,7 +280,7 @@ The adduct of `adduct_ion`.
 * Entity Level.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:adduct`.
     * default: `TypeError`.
 """
@@ -296,7 +298,7 @@ The number of core chemical. For instance, 2 for "[2M+H]+".
 * Entity Level.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:ncore`.
     * default: `1`.
 """
@@ -319,7 +321,7 @@ The charge state of `chemical`; positive for cation and negative for anion. For 
 * Entity Level.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty` -> sign flip if `loss`.
+1. Function: [`getchemicalproperty`](@ref) -> sign flip if `loss`.
     * property: `:charge`.
     * default: `0`.
 
@@ -359,7 +361,7 @@ The retention time of `chemical`.
 * `Isobars`: weighted mean of retention times of each chemical.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:retentiontime`.
     * default: `NaN`.
 """
@@ -401,7 +403,7 @@ Attribute with Specific Methods marked as `Entity` indicates the `elementalschem
 * `IsotopomerizedSchema`: elemental schema of all schema.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:elementalscheme`.
     * default: itself.
 """
@@ -421,7 +423,7 @@ The structural scheme of `scheme`. All elemental schema are regarded as structur
 * `IsotopomerizedSchema`: structural schema of all schema.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:structuralscheme`.
     * default: itself.
 """
@@ -472,7 +474,7 @@ The parent chemical without delocalized isotopes replacement.
 
 # Specific Methods
 * Entity Level.
-* `ChemicalTransition`: `ChemicalTransition` of parent chemicals of each transition.
+* `ChemicalTransition`: [`ChemicalTransition`](@ref) of parent chemicals of each transition.
 * `Groupedisotopmers`: field `parent`.
 * `ElementalScheme`: scheme of chemical parent of chemical entity.
 * `ChemicalSchema`: schema of chemical parent(s) of chemical entity(s).
@@ -506,7 +508,7 @@ The delocalized isotopes replacement of isotopomers.
 * `Groupedisotopomerizedschema`: isotopes replacement of the most abundant isotopomers.
 
 # Property Search Workflow
-1. Function: `getchemicalproperty`.
+1. Function: [`getchemicalproperty`](@ref).
     * property: `:isotopomersisotopes`.
     * default: `Pair{String, Int}[]`.
 
@@ -607,7 +609,7 @@ analyzedchemical(cc::AbstractScheme; kwargs...) = throw(ArgumentError("Scheme ca
 The single chemical entity that is directly detected at the very end of instrumental analysis.
 
 # Generic Methods
-* `AbstractChemical`: itself.
+* `AbstractChemical`: itself or precursor with scheme (scheme is derived from `detectedchemical` of `precursor` and itself as product using [`completescheme`](@ref)).
 * `AbstractScheme`: precursor with scheme. It requires a keyword argument `precursor`.
 
 # Specific Methods
@@ -615,7 +617,11 @@ The single chemical entity that is directly detected at the very end of instrume
 * `ChemicalTransition`: the very ending product, but takes chemical gain and loss in consideration.
 * `Isobars`: the most abundant detected chemical.
 """
-detectedchemical(cc::AbstractChemical; kwargs...) = cc
+function detectedchemical(cc::AbstractChemical; precursor = nothing, kwargs...)
+    isnothing(precursor) && return cc 
+    precursor = detectedchemical(precursor; kwargs...)
+    detectedchemical(precursor, cc)
+end
 function detectedchemical(sch::AbstractScheme; precursor = nothing, kwargs...) 
     isnothing(precursor) && throw(ArgumentError("Scheme cannot be directly detected without precursor."))
     precursor = detectedchemical(precursor; kwargs...)
@@ -642,17 +648,6 @@ detectedcharge(cc::AbstractChemicalsSchema; kwargs...) = charge(detectedchemical
 function detectedcharge(sch::AbstractScheme; precursor = nothing, precursorcharge = nothing, kwargs...) 
     isnothing(precursor) && isnothing(precursorcharge) && throw(ArgumentError("Scheme cannot be directly detected without precursor information."))
     (isnothing(precursorcharge) ? detectedcharge(precursor; kwargs...) : precursorcharge) + charge(sch; kwargs...)
-end
-
-"""
-    detectedelements(chemical::AbstractChemicalsSchema); kwargs... -> Vector{Pair{String, Int}}
-
-The elements of detected chemical. See [`detectedchemical`](@ref) for details.
-"""
-detectedelements(cc::AbstractChemicalsSchema; kwargs...) = chemicalelements(detectedchemical(cc); kwargs...)
-function detectedelements(sch::AbstractScheme; precursor = nothing, precursorelements = nothing, kwargs...) 
-    isnothing(precursor) && isnothing(precursorelements) && throw(ArgumentError("Scheme cannot be directly detected without precursor information."))
-    gain_elements(isnothing(precursorelements) ? detectedelements(precursor; kwargs...) : precursorelements, chemicalelements(sch; kwargs...))
 end
 
 # MS representation of chemical
@@ -705,13 +700,6 @@ The charge states of serially analyzed chemical. See [`seriesanalyzedchemical`](
 seriesanalyzedcharge(cc::AbstractChemicalsSchema; kwargs...) = [charge(c; kwargs...) for c in seriesanalyzedchemical(cc)]
 
 """
-    seriesanalyzedelements(chemical::AbstractChemicalsSchema; kwargs...) -> Vector{Vector{Pair{String, Int}}}
-
-The elements of serially analyzed chemical. See [`seriesanalyzedchemical`](@ref) for details.
-"""
-seriesanalyzedelements(cc::AbstractChemicalsSchema; kwargs...) = [chemicalelements(c; kwargs...) for c in seriesanalyzedchemical(cc)]
-
-"""
     msstage(chemical::AbstractChemical; kwargs...) -> Int
 
 Number of stages of MS the chemical has been through.
@@ -730,8 +718,8 @@ msstage(cc::AbstractChemical; kwargs...) = 1
 The monoisotopic mass of `chemical`.
 
 # Generic Methods
-* `AbstractChemical`: calculated from `chemicalelements` and `charge`.
-* `AbstractScheme`: calculated from `chemicalelements` and `charge`; change of monoisotopic mass.
+* `AbstractChemical`: calculated from [`chemicalelements`](@ref) and [`charge`](@ref).
+* `AbstractScheme`: calculated from [`chemicalelements`](@ref) and [`charge`](@ref); change of monoisotopic mass.
 * `AbstractCompleteScheme`: change of monoisotopic mass of elemental scheme.
 
 # Specific Methods
@@ -753,9 +741,9 @@ mmi(sch::AbstractCompleteScheme; loss = false, kwargs...) = mmi(elementalscheme(
 The molar mass of `chemical`.
 
 # Generic Methods
-* `AbstractChemical`: calculated from `chemicalelements` and `charge`.
-* `AbstractScheme`: calculated from `chemicalelements` and `charge`; change of molar mass.
-* `AbstractCompleteScheme`: chamge of molar mass of elemental scheme.
+* `AbstractChemical`: calculated from [`chemicalelements`](@ref) and [`charge`](@ref).
+* `AbstractScheme`: calculated from [`chemicalelements`](@ref) and [`charge`](@ref); change of molar mass.
+* `AbstractCompleteScheme`: change of molar mass of elemental scheme.
 
 # Specific Methods
 * Entity Level.
@@ -777,9 +765,9 @@ molarmass(sch::AbstractCompleteScheme; loss = false, kwargs...) = molarmass(elem
 The mass to charge ratio (m/z) of charged chemical or chemical with adduct. It is equivalent to `mmi(charged_chemical) / ncharge(charged_chemical)`.
 
 # Generic Methods
-* `AbstractChemical`: calculated from `mmi` and `charge`.
-* `AbstractAdductIon`: calculated from `mmi` and `charge` of both core chemical and adduct.
-* `AbstractScheme`: calculated from `mmi` and `charge`; change of m/z.
+* `AbstractChemical`: calculated from [`mmi`](@ref) and [`charge`](@ref).
+* `AbstractAdductIon`: calculated from [`mmi`](@ref) and [`charge`](@ref) of both core chemical and adduct.
+* `AbstractScheme`: calculated from [`mmi`](@ref) and [`charge`](@ref); change of m/z.
 * `AbstractCompleteScheme`: change of m/z of elemental scheme.
 
 # Specific Methods

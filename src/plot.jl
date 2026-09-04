@@ -5,7 +5,7 @@
 Plot a spectrum.
 
 # Arguments
-* `mz_range::Union{Nothing, Tuple}`: nothing (indicating entire mz range) or a tuple of m/z lower bound an d upper bound.
+* `mz_range::Union{Nothing, Tuple}`: nothing (indicating entire mz range) or a tuple of m/z lower bound and upper bound.
 * `deconvolution::Bool`: plot deconvoluted or convoluted spectrum.
 * `abundance` sets the abundance of the peak specified by `abtype`. 
 * `abtype`.

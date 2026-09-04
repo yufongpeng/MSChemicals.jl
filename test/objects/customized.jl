@@ -157,11 +157,12 @@ set_scheme!("[-H-Ser]-", LossProtonSerine())
 set_scheme!("[-Ser-H]-", LossProtonSerine())
 set_schabbr!("Ser", Serine())
 
-const SES = StructuralElementalScheme
-const LossProton = ElementalScheme{false, <:Proton}
-const DiacylPSmH = AdductIon{<:DiacylPS, <:SES{<:LossProton}}
-const DiacylPSmS = AdductIon{<:DiacylPS, <:SES{LossSerine}}
-const DiacylPSmHS = AdductIon{<:DiacylPS, <:SES{LossProtonSerine}}
+# const SES = StructuralElementalScheme
+const LossProton = MSC.CLType(Proton)
+const GainProton = MSC.CGType(Proton)
+const DiacylPSmH = MSC.AIType(DiacylPS, MSC.SESType(LossProton))
+const DiacylPSmS = MSC.AIType(DiacylPS, MSC.SESType(LossSerine))
+const DiacylPSmHS = MSC.AIType(DiacylPS, MSC.SESType(LossProtonSerine))
 
 # completescheme(precursor::DiacylPS, product::LossSerine) = SES(product, ChemicalLoss(Serine(; nD = first(precursor.headgroup), n13C = last(precursor.headgroup))))
 # completescheme(precursor::DiacylPSmH, product::LossSerine) = SES(product, ChemicalLoss(Serine(; nD = first(ioncore(precursor).headgroup), n13C = last(ioncore(precursor).headgroup))))

@@ -1,7 +1,31 @@
 """
+    match_chemical(exp, lib; colexp = :Chemical, collib = :Chemical, fnexp = detectedchemical) -> Table
+
+Match chemicals in `exp` (a `Table` or `Vector`) to chemicals in `lib` (a `Table` or `Vector`). 
+The resulting table is `exp` with matched index (column `LibID`), matched chemicals (column `Match`) and other information from `lib`.
+
+The exact chemicals being matched are converted from `exp` using `fnexp`.
+"""
+function match_chemical(exp, lib; colexp = :Chemical, collib = :Chemical, fnexp = detectedchemical)
+    del = Int[]
+    libid = Int[]
+    exp = hasproperty(exp, colexp) ? exp : Table(; Chemical = exp)
+    chemical_exp = fnexp.(getproperty(exp, colexp))
+    chemical_lib = hasproperty(lib, collib) ? getproperty(lib, collib) : lib
+    for i in eachindex(exp)
+        j = findfirst(x -> ischemicalequal(x, chemical_exp[i]), chemical_lib)
+        isnothing(j) ? push!(del, i) : push!(libid, j)
+    end
+    id = setdiff(eachindex(exp), del)
+    ps = filter(!=(collib), propertynames(lib))
+    Table(exp[id]; LibID = libid, Match = chemical_lib[libid], [p => [getproperty(lib, p)[i] for i in libid] for p in ps]...)
+end
+
+"""
     ischemicalequal(x::AbstractChemicalsSchema, y::AbstractChemicalsSchema) -> Bool
 
-Determine whether two chemicals are chemically equivalent. By default, it transforms both chemicals by `ischemicalequaltransform` and compares them by `istransformedchemicalequal`.
+Determine whether two chemicals are chemically equivalent. 
+By default, it transforms both chemicals by [`ischemicalequaltransform`](@ref) and compares them by [`istransformedchemicalequal`](@ref).
 """
 ischemicalequal(x::AbstractChemical, y::AbstractChemical) = istransformedchemicalequal(ischemicalequaltransform(x), ischemicalequaltransform(y))
 ischemicalequal(x::AbstractScheme, y::AbstractScheme) = istransformedchemicalequal(ischemicalequaltransform(x), ischemicalequaltransform(y))
@@ -20,7 +44,7 @@ ischemicalequal(x::AbstractChemicalsSchema, y::AbstractChemicalsSchema) = istran
 """
     ischemicalequaltransform(x::AbstractChemicalsSchema) -> AbstractChemicalsSchema
 
-Return an object for comparison with other chemicals by `istransformedchemicalequal`. 
+Return an object for comparison with other chemicals by [`istransformedchemicalequal`](@ref). 
 """
 ischemicalequaltransform(x::AbstractChemical) = x 
 ischemicalequaltransform(x::AbstractScheme) = x 
@@ -37,7 +61,8 @@ ischemicalequaltransform(x::ChemicalTransition) = ChemicalTransition([ischemical
 """
     istransformedchemicalequal(x::AbstractChemicalsSchema, y::AbstractChemicalsSchema) -> Bool
 
-Determine whether two chemicals are chemically equivalent after applying `ischemicalequaltransform`. For `Chemical` and `FormulaChemical`, It tests the name and the elements composition. For others, it defaults to `isequal`.
+Determine whether two chemicals are chemically equivalent after applying [`ischemicalequaltransform`](@ref). 
+For [`Chemical`](@ref) and [`FormulaChemical`](@ref), It tests the name and the elements composition.
 """
 istransformedchemicalequal(x::AbstractChemicalsSchema, y::AbstractChemicalsSchema) = false
 istransformedchemicalequal(x::AbstractChemical, y::AbstractChemical) = isequal(x, y)
@@ -76,7 +101,7 @@ istransformedchemicalequal(x::StructuralElementalScheme, y::StructuralElementalS
     ionize([constructor,] chemical; kwargs...) -> constructor
     ionize([constructor,] chemical, args...; kwargs...) -> constructor
 
-Ionize `chemical` and wrap with `constructor`. The default constructor is `AdductIon`.
+Ionize `chemical` and wrap with `constructor`. The default constructor is [`AdductIon`](@ref).
 """
 ionize(chemical::AbstractChemical; kwargs...) = ionize(AdductIon, chemical; kwargs...)
 ionize(chemical::AbstractChemical, adduct, ncore = 1; kwargs...) = ionize(AdductIon, chemical, adduct, ncore; kwargs...)
@@ -85,7 +110,7 @@ ionize(chemical::AbstractChemical, adduct, ncore = 1; kwargs...) = ionize(Adduct
     ionize(::Type{AdductIon}, chemical::AbstractChemical; adduct, ncore = 1, kwargs...) -> AdductIon
     ionize(::Type{AdductIon}, chemical::AbstractChemical, adduct, ncore = 1; kwargs...) -> AdductIon
 
-Ionize `chemical` and wrap with `AdductIon`.
+Ionize `chemical` and wrap with [`AdductIon`](@ref).
 
 # Arguments 
 * `adduct::AbstractScheme`: adduct scheme.
@@ -170,25 +195,140 @@ islossscheme(sch::IsotopomerizedSchema) = islossscheme(sch.parent)
 islossscheme(sch::Groupedisotopomerizedschema) = islossscheme(sch.parent) 
 
 """
-    completescheme(precursor::AbstractChemical, product::AbstractChemical) -> AbstractChemical
+    completescheme(precursor::AbstractChemical, product::AbstractChemical) -> StructuralElementalScheme
     completescheme(precursor::AbstractChemical, sch::AbstractScheme) -> StructuralElementalScheme    
-    completescheme(precursor::AbstractChemical, product::GenericChemical) -> AbstractChemical
-    completescheme(precursor::AbstractChemical, product::AdductIon{<:GenericChemical}) -> AbstractChemical
+    completescheme(precursor::AbstractChemical, product::GenericChemical) -> StructuralElementalScheme
+    completescheme(precursor::AbstractChemical, product::AdductIon{<:GenericChemical}) -> StructuralElementalScheme
     completescheme(precursor::AbstractChemical, sch::CompleteSchema) -> CompleteSchema
     completescheme(precursor::AbstractChemical, sch::ChemicalSchema) -> ChemicalSchema 
     completescheme(precursor::AbstractChemical, sch::IsotopomerizedSchema) -> IsotopomerizedSchema
     completescheme(precursor::AbstractChemical, sch::Groupedisotopomerizedschema) -> Groupedisotopomerizedschema
-    completescheme(precursor::Nothing, product::AbstractChemical) -> AbstractChemical
+    completescheme(precursor::Nothing, product::AbstractChemical) -> StructuralElementalScheme
 
-Transform `sch` or `product` into `CompleteSchema` or `AbstractChemical` with `precursor`. 
+Transform `sch` or `product` into `CompleteSchema` according to `precursor`. 
 
 For generic precursor and product, this function calls `structure_search` which searches the property `:structure` of `ioncore(precursor)` for `ionadduct(precursor)` and `product`. 
 When `product` is a generic chemical, `structure_search` searches the property `:chemicalscheme` for `ionadduct(precursor)` first, and then use the returned scheme instead of `product` for the following structure search. 
 
 For other chemicals, it calls `elementalscheme(precursor, product)` to generate elemental scheme incorporating information from `precursor`. 
+
+# Examples
+## Generic chemical
+```julia-repl
+julia> chemical = Chemical("18:0 PC-d9", "C44H79NO8PD9") # Deuterium-labeled PC on methyl group
+18:0 PC-d9
+
+julia> loss_me = ElementalScheme(false, Chemical("Me", "CH3"; charge = 1))
+Loss_Me
+
+julia> loss_cd3 = ElementalScheme(false, Chemical("Me[D3]", "CD3"; charge = 1))
+Loss_Me[D3]
+
+julia> push!(chemical.property, :structure => [nothing => [loss_me => loss_cd3]])
+1-element Vector{Pair{Symbol, Any}}:
+ :structure => Pair{Nothing, Vector{Pair{ElementalScheme{false, Chemical}, ElementalScheme{false, Chemical}}}}[nothing => [Loss_Me => Loss_Me[D3]]]
+
+julia> ionize(chemical, loss_me)
+[(18:0 PC-d9)-Me[D3]]-
+```
+A more complex example, 
+```julia-repl
+julia> ps1 = Chemical("PS[D3,13C3] 18:0/20:4", "C41[13C]3H75D3NO10P") # Deuterium/carbon-13-labeled PS on serine part
+PS[D3,13C3] 18:0/20:4
+
+julia> ps2 = Chemical("PS 18:0[D5]/20:4(5Z,8Z,11Z,14Z)", "C44H73D5NO10P") # Deuterium/carbon-13-labeled PS on fa1 part
+PS 18:0[D5]/20:4(5Z,8Z,11Z,14Z)
+
+julia> begin
+       cserine = Chemical("Serine", "C3H5NO2"; abbreviation = "Ser") # Normal serine
+       cserinei = Chemical("Serine[D3,13C3]", "[13C]3H2D3NO2"; abbreviation = "Ser[D3,13C3]") # Labeled serine
+       lossserine = ChemicalLoss(cserine)
+       lossserinei = ChemicalLoss(cserinei)
+       losshserine = ChemicalLoss(AdductIon(cserine, "[M+H]+"))
+       losshserinei = ChemicalLoss(AdductIon(cserinei, "[M+H]+"))
+       fa1 = Chemical("FA 18:0", "C18H36O2")
+       fa1i = Chemical("FA 18:0[D5]", "C13D5H36O2") # Labeled fa
+       end;
+
+julia> push!(ps1.property, :structure => [
+           nothing => [
+               lossserine => lossserinei,
+               losshserine => losshserinei
+           ],
+           ChemicalLoss(Proton()) => [
+               lossserine => lossserinei  
+           ]
+       ]);
+
+julia> push!(ps1.property, :schema => [
+           ChemicalLoss(Proton()) => [
+               lossserine => losshserine
+           ] 
+       ]);
+
+julia> detectedchemical(ChemicalSeries(ionize(ps1, ChemicalLoss(Proton())) => lossserine))
+[(PS[D3,13C3] 18:0/20:4)-Ser[D3,13C3]-H]-
+
+julia> push!(fa1.property, :chemicalscheme => [
+           ChemicalLoss(Proton()) => :sn1fa
+       ]);
+
+julia> push!(fa1i.property, :chemicalscheme => [
+           ChemicalLoss(Proton()) => :sn1fa
+       ]);
+
+julia> push!(ps2.property, :structure => [
+           ChemicalLoss(Proton()) => [
+               :sn1fa => AdductIon(fa1i, ChemicalLoss(Proton()))     
+           ],
+           losshserine => [
+               :sn1fa => AdductIon(fa1i, ChemicalLoss(Proton()))     
+           ]
+       ]);
+    
+julia> push!(ps2.property, :schema => [
+           ChemicalLoss(Proton()) => [
+               lossserine => losshserine
+           ] 
+       ]);
+
+julia> detectedchemical(ChemicalSeries(ionize(ps2, ChemicalLoss(Proton())) => fa1))
+[FA 18:0[D5]-H]-
+```
+## Customized type
+```julia-repl
+julia> abstract type AbstractPC <: AbstractChemical end
+
+julia> struct PC <: AbstractPC end # Normal PC
+
+julia> struct DLPC <: AbstractPC 
+           location::Symbol
+       end # Deuterium-labeled PC on methyl group (location = :Me) or other part
+
+julia> struct Me <: AbstractChemical end; charge(::Me; kwargs...) = -1.0 # Methenium
+charge (generic function with 15 methods)
+
+julia> struct DLMe <: AbstractChemical end; charge(::DLMe; kwargs...) = -1.0 # Deuterium-labeled Methinium
+charge (generic function with 16 methods)
+
+julia> elementalscheme(pc::DLPC, ::CLType(Me)) = pc.location == :Me ? ChemicalLoss(DLMe()) : ChemicalLoss(Me())
+elementalscheme (generic function with 31 methods)
+
+julia> ion1 = ionize(DLPC(:Me); adduct = ChemicalLoss(Me()))
+[DLPC-DLMe]-
+
+julia> adductionscheme(pc::AIType(AbstractPC, SESType(CGType(Acetate))), ::CLType(MethylAcetate)) = completescheme(ioncore(pc), ChemicalLoss(Me()))
+adductionscheme (generic function with 5 methods)
+
+julia> ion2 = detectedchemical(ChemicalSeries(ionize(DLPC(:Me), "[M+OAc]-") => ChemicalLoss(MethylAcetate())))
+[DLPC-DLMe]-
+
+julia> ion1 == ion2
+true
+```
 """
-completescheme(precursor::AbstractChemical, product::AbstractChemical) = product
-completescheme(precursor::Nothing, product::AbstractChemical) = product
+completescheme(precursor::AbstractChemical, product::AbstractChemical) = StructuralElementalScheme(RandomProductScheme(), product)
+completescheme(precursor::Nothing, product::AbstractChemical) = StructuralElementalScheme(RandomProductScheme(), product)
 # completescheme(precursor::T, product::S) where {T<:AbstractChemical, S<:AbstractScheme} = throw(ArgumentError("Specific `completescheme(precursor::$T, scheme::$S)` method has to be implemented."))
 completescheme(precursor::AbstractChemical, product::CompleteSchema) = product
 completescheme(precursor::AbstractChemical, product::GenericChemical) = _completescheme(precursor, product)
@@ -201,8 +341,8 @@ completescheme(precursor::AbstractChemical, product::AbstractScheme) = Structura
 
 # _completescheme(precursor::AbstractChemical, product::ElementalScheme{T}) where T = StructuralElementalScheme(product, ElementalScheme(T, product))
 
-_completescheme(precursor::AbstractChemical, product::GenericChemical) = product
-_completescheme(precursor::AbstractChemical, product::AdductIon{<:GenericChemical}) = product
+_completescheme(precursor::AbstractChemical, product::GenericChemical) = StructuralElementalScheme(RandomProductScheme(), product)
+_completescheme(precursor::AbstractChemical, product::AdductIon{<:GenericChemical}) = StructuralElementalScheme(RandomProductScheme(), product)
 _completescheme(precursor::AbstractChemical, product::ChemicalSchema) = ChemicalSchema(completescheme.(Ref(precursor), product.schema), product.number)
 _completescheme(precursor::AbstractChemical, product::IsotopomerizedSchema) = IsotopomerizedSchema(completescheme(precursor, product.parent), product.isotopes)
 _completescheme(precursor::AbstractChemical, product::Groupedisotopomerizedschema) = Groupedisotopomerizedschema(completescheme(precursor, product.parent), product.state, product.isotope, product.isotopes, product.abundance)
@@ -225,6 +365,17 @@ _completescheme(precursor::AdductIon{<:GenericChemical}, product::ChemicalSchema
 # _completescheme(precursor::AdductIon{<:GenericChemical}, product::AbstractElementalScheme) = structure_search(ioncore(precursor), ionadduct(precursor), product)
 
 """
+    completeschemechemical(precursor::AbstractChemicalsSchema, product::AbstractChemicalsSchema) -> AbstractChemicalsSchema
+    completeschemechemical(sch::CompleteSchemeChemical) -> AbstractChemical
+    completeschemechemical(sch::AbstractScheme) -> AbstractScheme
+
+Transform `product` into `CompleteSchema` or `AbstractChemical` according to `precursor`. `[`completescheme`](@ref)` is first called to generate `sch`, and the returned object is determined by the type of `sch`. If `sch` is a `CompleteSchemeChemial`, then `elementalscheme(sch)` is called; otherwise, `sch` is returned as is.
+"""
+completeschemechemical(precursor, product) = completeschemechemical(completescheme(precursor, product))
+completeschemechemical(sch::CompleteSchemeChemical) = elementalscheme(sch)
+completeschemechemical(sch::AbstractScheme) = sch
+
+"""
     elementalscheme(precursor::AbstractChemical, product::AbstractChemical) -> AbstractChemical
     elementalscheme(precursor::AbstractChemical, sch::AbstractScheme) -> StructuralElementalScheme    
     elementalscheme(precursor::AbstractChemical, sch::CompleteSchema) -> CompleteSchema
@@ -234,7 +385,7 @@ _completescheme(precursor::AdductIon{<:GenericChemical}, product::ChemicalSchema
     elementalscheme(precursor::AbstractChemical, sch::AbstractElementalScheme) -> AbstractElementalScheme
     elementalscheme(precursor::Nothing, product::AbstractChemical) -> AbstractChemical
 
-Transform `sch` or `product` into elemental scheme with `precursor`. 
+Transform `sch` or `product` into elemental scheme according to `precursor`. 
 
 For generic precursor and product, this function calls `structure_search_elemental` which searches the property `:structure` of `ioncore(precursor)` for `ionadduct(precursor)` and `product`. 
 When `product` is a generic chemical, `structure_search_elemental` searches the property `:chemicalscheme` for `ionadduct(precursor)` first, and then use the returned scheme instead of `product` for the following structure search. 
@@ -243,6 +394,9 @@ Any of the following method should be defined for new structural scheme and new 
 * `elementalscheme(::new_chemical_type, ::new_structural_type)`: the new chemical type represents an ion in MS.
 * `elementalscheme(::AdductIon{new_chemical_type, StructuralElementalScheme{structural_type}}, ::new_structural_type)`: the new chemical type formed an adduct ion with single scheme.
 * `elementalscheme(::AdductIon{new_chemical_type, ChemicalSchema}, ::new_structural_type)`: the new chemical type formed an adduct ion with multiple schema.
+
+See [`completescheme`](@ref) for examples of defining new methods.
+```
 """
 elementalscheme(precursor::AbstractChemical, product::AbstractChemical) = product
 elementalscheme(precursor::Nothing, product::AbstractChemical) = product
@@ -276,7 +430,8 @@ elementalscheme(precursor::AdductIon{<:GenericChemical}, product::AbstractElemen
 
 Return a new scheme blending `ionadduct(precursor)` and `product`. 
 
-For generic chemical types, this function calls `schema_search` which searches the property `:schema` of `ioncore(precursor)` for `ionadduct(precursor)` and `product`, and then calls `structure_search`, seaching for `nothing` and the returned schema. 
+For generic chemical types, this function calls `schema_search` which searches the property `:schema` of `ioncore(precursor)` for `ionadduct(precursor)` and `product`, 
+and then calls [`structure_search`](@ref), seaching for `nothing` and the returned schema. 
 
 For other chemicals, it returns a complete scheme directly without incorporating any information from `precursor`.
 
@@ -285,6 +440,9 @@ Defining new method is optional for new structural scheme and new chemical type 
 * `adductionscheme(::AdductIon{new_chemical_type, ChemicalSchema}, ::new_structural_type)`.
 * `adductionscheme(::AdductIon{new_chemical_type, StructuralElementalScheme{structural_type}}, ::ChemicalSchema)`.
 * `adductionscheme(::AdductIon{new_chemical_type, ChemicalSchema}, ::ChemicalSchema)`.
+
+See [`completescheme`](@ref) for examples of defining new methods.
+```
 """
 adductionscheme(precursor::AdductIon, product::CompleteSchema) = adductionscheme(precursor, structuralscheme(product))
 adductionscheme(precursor::AdductIon, product::AbstractScheme) = ChemicalSchema(ionadduct(precursor), completescheme(precursor, product))
@@ -317,18 +475,18 @@ end
 
 The chemical directly detected in MS. 
 
-By default, `completescheme` is applied to `sch` first, and `AdductIon` is generated; chemical entity of `product` or chemical containing `sch` is directly returned.
+By default, [`completescheme`](@ref) is applied to `sch` first, and [`AdductIon`](@ref) is generated; chemical entity of `product` or chemical containing `sch` is directly returned.
 
-When `precursor` is `Isotopomers` or `Groupedisotopomers`, the ouput chemical entity is wrapped accordingly. 
+When `precursor` is [`Isotopomers`](@ref) or [`Groupedisotopomers`](@ref), the ouput chemical entity is wrapped accordingly. 
 
-For `AdductIon`, `adductionscheme` is called for blending precursor and product scheme. 
+For [`AdductIon`](@ref), [`adductionscheme`](@ref) is called for blending precursor and product scheme. 
 
-Defining new method is optional unless other `AbstractAdductIon` type is used.
+Defining new method is optional unless other [`AbstractAdductIon`](@ref) type is used.
 * `detectedchemical(::new_adduction_type, ::CompleteSchema)`.
 * `detectedchemical(::new_adduction_type, ::AbstractScheme)`.
-For `StructuralChemicalScheme` method, defining new method `elementalscheme(::new_adduction_type, ::structural_type)` for each `structural_type<:StructuralChemicalScheme`.
+For [`StructuralChemicalScheme`](@ref) method, defining new method `elementalscheme(::new_adduction_type, ::structural_type)` for each `structural_type<:StructuralChemicalScheme`.
 """
-detectedchemical(precursor::AbstractChemical, product::AbstractChemical) = product
+detectedchemical(precursor::AbstractChemical, product::AbstractChemical) = detectedchemical(precursor, completescheme(precursor, product))
 # detectedchemical(precursor::AbstractChemical, product::AbstractScheme) = detectedchemical(precursor, completescheme(precursor, product))
 detectedchemical(precursor::AbstractChemical, product::CompleteSchemeChemical) = elementalscheme(product)
 detectedchemical(precursor::AbstractChemical, product::CompleteSchema) = AdductIon(precursor, product, 1) 
@@ -351,8 +509,9 @@ detectedchemical(precursor::AdductIon, product::CompleteSchema) = AdductIon(ionc
 detectedchemical(precursor::AdductIon, product::AbstractScheme) = AdductIon(ioncore(precursor), adductionscheme(precursor, product), ncore(precursor))
 detectedchemical(precursor::AdductIon, product::StructuralChemicalScheme) = elementalscheme(precursor, product)
 
-detectedchemical(precursor::Isotopomers, product::AbstractChemical) = Isotopomers(product, Pair{String, Int}[])
+detectedchemical(precursor::Isotopomers, product::AbstractChemical) = Isotopomers(detectedchemical(chemicalparent(precursor), product), Pair{String, Int}[])
 detectedchemical(precursor::Isotopomers, product::Isotopomers) = product
+detectedchemical(precursor::Isotopomers, product::Groupedisotopomers) = Isotopomers(chemicalparent(product), isotopomersisotopes(product))
 detectedchemical(precursor::Isotopomers, product::CompleteSchemeChemical) = detectedchemical(precursor, elementalscheme(product))
 function detectedchemical(precursor::Isotopomers, product::CompleteSchema)
     chemical = detectedchemical(chemicalparent(precursor), chemicalparent(product))
@@ -367,7 +526,7 @@ function detectedchemical(precursor::Isotopomers, product::AbstractScheme)
 end
 detectedchemical(precursor::Isotopomers, product::StructuralChemicalScheme) = detectedchemical(precursor, elementalscheme(chemicalparent(precursor), product))
 
-detectedchemical(precursor::Groupedisotopomers, product::AbstractChemical) = Groupedisotopomers(product, 0, precursor.isotope, groupedisotopomersisotopes(product), groupedisotopomersabundance(product))
+detectedchemical(precursor::Groupedisotopomers, product::AbstractChemical) = Groupedisotopomers(detectedchemical(chemicalparent(precursor), product), 0, precursor.isotope, groupedisotopomersisotopes(product), groupedisotopomersabundance(product))
 detectedchemical(precursor::Groupedisotopomers, product::Isotopomers) = Groupedisotopomers(chemicalparent(product), isotopomerstate(product; isotope = precursor.isotope), precursor.isotope, groupedisotopomersisotopes(product), groupedisotopomersabundance(product))
 detectedchemical(precursor::Groupedisotopomers, product::Groupedisotopomers) = product
 detectedchemical(precursor::Groupedisotopomers, product::CompleteSchemeChemical) = detectedchemical(precursor, elementalscheme(product))
@@ -397,7 +556,9 @@ structuralscheme(sch::Groupedisotopomerizedschema; kwargs...) = Groupedisotopome
 structuralscheme(sch::IsotopomerizedSchema; kwargs...) = IsotopomerizedSchema(structuralscheme(sch.parent; kwargs...), sch.isotopes)
 structuralscheme(sch::ChemicalSchema; kwargs...) = ChemicalSchema(structuralscheme.(sch.schema; kwargs...), sch.number)
 structuralscheme(::Nothing; kwargs...) = nothing 
+structuralscheme(x::Symbol; kwargs...) = x 
 elementalscheme(::Nothing; kwargs...) = nothing 
+elementalscheme(x::Symbol; kwargs...) = x 
 
 chemicalspecies(isobars::Isobars; kwargs...) = isobars.chemicals
 
@@ -459,15 +620,6 @@ function seriesanalyzedcharge(ct::ChemicalTransition; kwargs...)
     end
     v
 end
-function seriesanalyzedelements(ct::ChemicalTransition; kwargs...)
-    v = Vector{Pair{String, Int}}[]
-    precursorelements = nothing
-    for c in chemicaltransition(ct) 
-        push!(v, detectedelements(c; precursorelements))
-        precursorelements = last(v)
-    end
-    v
-end
 
 detectedchemical(isobars::Isobars; kwargs...) = Isobars([detectedchemical(chemical; kwargs...) for chemical in chemicalspecies(isobars)], isobars.abundance)
 detectedchemical(isobars::Isobars{<:ChemicalTransition}; kwargs...) = Isobars([detectedchemical(chemical; kwargs...) for chemical in chemicalspecies(isobars)], isobars.abundance[:, end])
@@ -475,32 +627,37 @@ detectedchemical(isobars::Isobars{<:ChemicalTransition}; kwargs...) = Isobars([d
 detectedisotopes(sch::CompleteSchemeChemical; precursor = nothing, precursorisotopes = nothing, kwargs...) = isotopomersisotopes(sch; kwargs...)
 detectedcharge(sch::CompleteSchemeChemical; precursor = nothing, precursorcharge = nothing, kwargs...) = charge(sch; kwargs...)
 detectedelements(sch::CompleteSchemeChemical; precursor = nothing, precursorelements = nothing, kwargs...) = chemicalelements(sch; kwargs...)
-
-detectedchemical(ct::ChemicalTransition; kwargs...) = 
-    detectedchemical(outputchemical(ct); precursor = @view(chemicaltransition(ct)[begin:end - 1]), kwargs...) 
-detectedchemical(ct::AbstractVector; kwargs...) = 
-    detectedchemical(last(ct); precursor = @view(ct[begin:end - 1]), kwargs...) 
-    # detectedchemical(@view(chemicaltransition(ct)[begin:end - 1]), outputchemical(ct); kwargs...) 
+# detectedchemical(ct::ChemicalTransition; kwargs...) = last(seriesanalyzedchemical(ct; kwargs...))
+# detectedisotopes(ct::ChemicalTransition; kwargs...) = last(seriesanalyzedisotopes(ct; kwargs...))::Vector{Pair{String, Int}}
+# detectedcharge(ct::ChemicalTransition; kwargs...) = last(seriesanalyzedcharge(ct; kwargs...))::Int
+# detectedelements(ct::ChemicalTransition; kwargs...) = last(seriesanalyzedelements(ct; kwargs...))::Vector{Pair{String, Int}}
+# detectedchemical(ct::ChemicalTransition; kwargs...) = 
+#     detectedchemical(outputchemical(ct); precursor = @view(chemicaltransition(ct)[begin:end - 1]), kwargs...) 
 # detectedchemical(ct::AbstractVector; kwargs...) = 
-#     detectedchemical(@view(ct[begin:end - 1]), last(ct); kwargs...) 
-# function detectedchemical(ct::AbstractVector, sch::AbstractScheme; kwargs...)
-#     length(ct) == 1 && return detectedchemical(first(ct), sch; kwargs...)
-#     precursor = detectedchemical(@view(ct[begin:end - 1]), last(ct); kwargs...)
-#     detectedchemical(precursor, sch)
-# end
+#     length(ct) > 1 ? detectedchemical(last(ct); precursor = @view(ct[begin:end - 1]), kwargs...) : first(ct)
+    # detectedchemical(@view(chemicaltransition(ct)[begin:end - 1]), outputchemical(ct); kwargs...) 
 # detectedchemical(ct::AbstractVector, chemical::AbstractChemical; kwargs...) = chemical
+function detectedchemical(ct::ChemicalTransition; kwargs...) 
+    precursor = nothing
+    for c in chemicaltransition(ct) 
+        precursor = detectedchemical(precursor, c)
+    end
+    precursor
+end
 detectedisotopes(ct::ChemicalTransition; kwargs...) = 
     detectedisotopes(outputchemical(ct); precursor = @view(chemicaltransition(ct)[begin:end - 1]), kwargs...)::Vector{Pair{String, Int}}
 detectedisotopes(ct::AbstractVector; kwargs...) = 
-    detectedisotopes(last(ct); precursor = @view(ct[begin:end - 1]), kwargs...)::Vector{Pair{String, Int}}
+    (length(ct) > 1 ? detectedisotopes(last(ct); precursor = @view(ct[begin:end - 1]), kwargs...) : isotopomersisotopes(first(ct); kwargs...))::Vector{Pair{String, Int}}
 detectedcharge(ct::ChemicalTransition; kwargs...) = 
     detectedcharge(outputchemical(ct); precursor = @view(chemicaltransition(ct)[begin:end - 1]), kwargs...)::Int
 detectedcharge(ct::AbstractVector; kwargs...) = 
-    detectedcharge(last(ct); precursor = @view(ct[begin:end - 1]), kwargs...)::Int
-detectedelements(ct::ChemicalTransition; kwargs...) = 
-    detectedelements(outputchemical(ct); precursor = @view(chemicaltransition(ct)[begin:end - 1]), kwargs...)::Vector{Pair{String, Int}}
-detectedelements(ct::AbstractVector; kwargs...) = 
-    detectedelements(last(ct); precursor = @view(ct[begin:end - 1]), kwargs...)::Vector{Pair{String, Int}}
+    (length(ct) > 1 ? detectedcharge(last(ct); precursor = @view(ct[begin:end - 1]), kwargs...) : charge(first(ct); kwargs...))::Int
+# detectedelements(ct::ChemicalTransition; kwargs...) = 
+#     detectedelements(outputchemical(ct); precursor = @view(chemicaltransition(ct)[begin:end - 1]), kwargs...)::Vector{Pair{String, Int}}
+# detectedelements(ct::AbstractVector; kwargs...) = 
+#     (length(ct) > 1 ? detectedelements(last(ct); precursor = @view(ct[begin:end - 1]), kwargs...) : chemicalelements(first(ct); kwargs...))::Vector{Pair{String, Int}}
+
+# detectedelements(ct::ChemicalTransition; kwargs...) = chemicalelements(detectedchemical(ct); kwargs...)
 
 # GenericChemical property search
 # structural -> complete, elemental -> complete
@@ -511,15 +668,15 @@ structure_search_elemental(chemical, precursor_schema, product_schema::ChemicalS
 structure_search(chemical, precursor_schema, product_schema::ChemicalSchema) = ChemicalSchema([structure_search(chemical, precursor_schema, k) for k in product_schema.schema], product_schema.number)
 function structure_search(chemical, precursor_schema, product::GenericChemical) 
     product_schema = chemicalscheme_search(product, nothing) 
-    isnothing(product_schema) && return product
+    isnothing(product_schema) && return StructuralElementalScheme(RandomProductScheme(), product)
     sch = _structure_search(chemical, precursor_schema, product_schema)
-    isnothing(sch) ? product : StructuralElementalScheme(structuralscheme(product_schema), sch)
+    isnothing(sch) ? StructuralElementalScheme(RandomProductScheme(), product) : StructuralElementalScheme(structuralscheme(product_schema), sch)
 end
 function structure_search(chemical, precursor_schema, product::AdductIon{<:GenericChemical}) 
     product_schema = chemicalscheme_search(ioncore(product), ionadduct(product)) 
-    isnothing(product_schema) && return product
+    isnothing(product_schema) && return StructuralElementalScheme(RandomProductScheme(), product)
     sch = _structure_search(chemical, precursor_schema, product_schema)
-    isnothing(sch) ? product : StructuralElementalScheme(structuralscheme(product_schema), sch)
+    isnothing(sch) ? StructuralElementalScheme(RandomProductScheme(), product) : StructuralElementalScheme(structuralscheme(product_schema), sch)
 end
 function structure_search_elemental(chemical, precursor_schema, product::GenericChemical) 
     product_schema = chemicalscheme_search(product, nothing) 

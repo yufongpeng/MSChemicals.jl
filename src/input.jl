@@ -4,7 +4,7 @@
     parse_chemical([parser::AbstractChemicalParser,] chemicals::AbstractVector; kwargs...) 
     parse_chemical([parser::AbstractChemicalParser,] pair::Pair kwargs...) 
 
-Parse chemical name and construct a chemical object using `parser`. The default parser is `ChemicalTransitionParser()`.
+Parse chemical name and construct a chemical object using `parser`. The default parser is `ChemicalTransitionParser()` (See [`ChemicalTransitionParser`](ref)).
 """
 parse_chemical(name...; kwargs...) = parse_chemical(ChemicalTransitionParser(), name...; kwargs...)
 function parse_chemical(chemicalparser::ChemicalParser, name::AbstractString; kwargs...) 

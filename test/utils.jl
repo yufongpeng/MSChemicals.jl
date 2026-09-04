@@ -9,7 +9,7 @@
         @test isapprox(MSC.safe_factorial(Val(false), 50, 3), MSC.safe_factorial(Val(true), 50, 3))
         @test isapprox(MSC.safe_multinomial(Val(false), [50, 50]), MSC.safe_multinomial(Val(false), 50, 50))
         @test isapprox(MSC.safe_multinomial(Val(true), [50, 50]), MSC.safe_multinomial(Val(true), 50, 50))
-        @test MSC.safe_multinomial(Val(false), 50) == MSC.safe_multinomial(Val(true), 50)
+        @test MSC.safe_multinomial(Val(false), 50) == MSC.safe_multinomial(Val(true), 50) 
         @test MSC.safe_multinomial(50) == 1
         @test isapprox(MSC.safe_multinomial(50, 50), MSC.safe_multinomial([50, 50]))
         @test isapprox(MSC.safe_multinomial(Val(false), [10, 10]), MSC.safe_multinomial(Val(false), 10, 10))
@@ -46,7 +46,7 @@
         @test isapprox(relative_error_mean(10, 100) * 100, percentage_error_mean(10, 100))
         @test isapprox(relative_error(0.01, 100) * 1e6, ppm_error(0.01, 100))
         @test isapprox(relative_error_mean(0.01, 100) * 1e6, ppm_error_mean(0.01, 100))
-        @test MSC.measure_name(charge, value_error) == MSC.measure_name("Z", value_error)
+        @test MSC.measure_name(charge, value_error) == replace(MSC.measure_name(ncharge, value_error), "|" => "")
         @test MSC.measure_name(molarmass, relative_error) == MSC.measure_name("M", relative_error_mean)
         @test MSC.measure_name(mz, percentage_error) == MSC.measure_name("MZ", percentage_error_mean)
         @test MSC.measure_name(mmi, ppm_error) == MSC.measure_name("Mmi", ppm_error_mean)

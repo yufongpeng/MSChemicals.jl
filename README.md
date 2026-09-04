@@ -3,10 +3,10 @@
 [![Build Status](https://github.com/yufongpeng/MassSpecChemicals.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/yufongpeng/MassSpecChemicals.jl/actions/workflows/CI.yml?query=branch%3Amaster)
 [![Coverage](https://codecov.io/gh/yufongpeng/MassSpecChemicals.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/yufongpeng/MassSpecChemicals.jl)
 
-A Julia package for representing molecules and ions formed in mass spectrometers (MS).
+A Julia package for representing chemicals and ions formed in mass spectrometers (MS).
 
 All chemicals are instances of the abstract type `AbstractChemical`.
-Charged chemicals formed in MS with a specific adduct or neutral loss (adduct ions) are instances of the abstract type `AbstractAdductIon`.
+Charged chemicals formed in MS with a specific adduct (chemical gain) or chemical loss (adduct ions) are instances of the abstract type `AbstractAdductIon`.
 
 # Built-in chemical types
 
@@ -70,7 +70,7 @@ Charged chemicals formed in MS with a specific adduct or neutral loss (adduct io
     Groupedisotopomers(parent::AbstractChemical, state::Int, isotope::String, isotopes::Vector{Vector{Pair{String, Int}}}, abundance::Vector)
     ```
 
-Users can parse chemical expressions and pairs using `parse_chemical`.
+Users can parse structural chemical expressions and pairs using `parse_chemical`, and chain chemicals into transition using `ChemicalSeries`.
 
 ```julia
 parse_chemical("[H3O]+") # H3O with one positive charge
@@ -80,6 +80,9 @@ parse_chemical("[C6H12O6+H]+" => "-H2O") # protonated C6H12O6 and neutral loss H
 parse_chemical("[C6H12O6+2H]2+" => "-[H2O+H]+") # diprotonated C6H12O6 and loss of protonated H2O
 parse_chemical(ChemicalTransitionParser(ChemicalExpressionParser(; charge = 2, loss = 1)), "C6H14O6" => "-H3O") # C6H14O6 (charge = 2) and loss H3O (charge = 1)
 parse_chemical("[C6H12O6+2H]2+" => ChemicalLoss(Water())) # mixed parser with another chemical type
+ChemicalSeries(parse_chemical("[C6H12O6+2H]2+") => ChemicalLoss(Water())) # pairs
+ChemicalSeries(parse_chemical("[C6H12O6+2H]2+"), ChemicalLoss(Water())) # arguments
+ChemicalSeries([parse_chemical("[C6H12O6+2H]2+"), ChemicalLoss(Water())]) # vector
 ```
 
 # Elements
@@ -143,9 +146,12 @@ Customized minor element names (`minor_name`) are optional.
 
 Any chemical gain, loss, and fragmentation scheme is an instance of `AbstractScheme`. This type has three abstract subtypes:
 
-1. `AbstractElementalScheme`: a scheme containing elemental information, including isotopic replacement.
+1. `AbstractElementalScheme`: a scheme containing elemental information, including isotopic replacement. The default type is `ElementalScheme{gain, T}`, where `gain` determines if it is a chemical gain (`true`) or loss (`false`). The followings are convenient constrution functions, 
+    * `ElementalScheme(gain, chemical::T) -> ElementalScheme{gain, T}`.
+    * `ChemicalGain(chemical::T) -> ElementalScheme{true, T}`.
+    * `ChemicalLoss(chemical::T) -> ElementalScheme{false, T}`.
 2. `AbstractStructuralScheme`: a scheme containing only structural information. This is useful for defining rule-based fragmentation.
-3. `AbstractCompleteScheme`: a scheme containing both elemental and structural information. It is the final scheme stored in `AdductIon`.
+3. `AbstractCompleteScheme`: a scheme containing both elemental and structural information. The default type is `StructuralElementalScheme`, which is the final scheme stored in `AdductIon`.
 
 In addition to single scheme, multiple schema are wrapped in `ChemicalSchema`.
 
@@ -171,6 +177,47 @@ Predefined chemicals used in scheme:
 |`Methylacetate`|`"MeOAc"`|
 |`Methylformate`|`"MeOFo"`|
 
+User can parse adduct representations into valid scheme using `parse_adduct`.
+```julia
+parse_adduct("[M+H]+") # (adduct = Gain_Proton, ncore = 1)
+parse_adduct(AdductParser(true), "[M+H]+") # (Gain_Proton, 1), parse into tuple instead
+parse_adduct("[M+2Na-H2O]+") # (adduct = Gain_2Sodium|Loss_Water|Gain_Electron, ncore = 1) 
+parse_adduct("[2M+OAc]-") # (adduct = Gain_Acetate, ncore = 2), two cores
+```
+
+New abbreviation can be set using `set_schabbr!`, where the abbreviation will be converted to desired chemical during adduct parsing.
+```julia
+serine = Chemical("Serine", "C3H5NO2"; abbreviation = "Ser") # new chemical Serine
+set_schabbr!("Ser", serine) # Use abbreviation Ser
+parse_adduct("[M-H-Ser]-") # (adduct = Loss_Proton|Loss_Serine, ncore = 1)
+```
+
+For a new adduct form, user has to define `set_scheme!` for customized adduct parsing.
+```julia
+struct NewScheme <: AbstractStructuralScheme end # New scheme
+set_scheme!("[+NSC]+", NewScheme()) # Single charged scheme
+parse_adduct("[2M+NSC]+") # (adduct = NewScheme, ncore = 2)
+```
+# AbstractAdductIon
+The generic adduct ion type is `Adduction`, which can be constructed from core chemical, adducts, or parsed scheme directly. 
+
+An universal interface for any types of `AbstractAdductIon` is also defined, 
+```julia
+core = Chemical("chm", "C6H6")
+# Default constructor is AdductIon
+ionize(core, "[M]+") # [chm]+
+ionize(core, ChemicalLoss(Electron())) # [chm]+
+ionize(core, "[2M-H]-") # [2chm-H]-
+ionize(core, ChemicalLoss(Proton()), 2) # [2chm-H]-
+ionize(core; adduct = "[2M-H]-") # [2chm-H]-
+ionize(core; adduct = ChemicalLoss(Proton()), ncore = 2) # [2chm-H]-
+# Assign constructor
+ionize(AdductIon, core, "[2M-H]-") # [2chm-H]-
+ionize(AdductIon, core, ChemicalLoss(Proton()), 2) # [2chm-H]-
+ionize(AdductIon, core; adduct = "[2M-H]-") # [2chm-H]-
+ionize(AdductIon, core; adduct = ChemicalLoss(Proton()), ncore = 2) # [2chm-H]-
+```
+
 # API
 ## Attributes of `AbstractChemical`
 
@@ -185,7 +232,7 @@ Attributes are interfaces for accessing properties and fields through `getchemic
 |`chemicalsmiles`|`String`|SMILES; defaults to `""`|
 |`charge`|`Int`|net charge (positive or negative); defaults to 0|
 |`ncharge`|`Int`|number of charges|
-|`retentiontime`|`Float64`|retention time; defaults to `NaN`|
+|`retentiontime`|`AbstractFloat`|retention time; defaults to `NaN`|
 |`chemicalparent`|`AbstractChemical`|parent chemical without delocalized isotope replacements|
 |`isotopomersisotopes`|`Vector{Pair{String, Int}}`|delocalized isotope replacements of isotopomers|
 |`isotopomerstate`|`Int`|isotopomer state, i.e. equivalent number of isotopes|
@@ -200,15 +247,13 @@ Attributes are interfaces for accessing properties and fields through `getchemic
 |`detectedchemical`|`AbstractChemical`|the chemical entity directly detected at the end of analysis|
 |`detectedisotopes`|`Vector{Pair{String, Int}}`|delocalized isotope replacements of the detected chemical|
 |`detectedcharge`|`Int`|charge state of the detected chemical|
-|`detectedelements`|`Vector{Pair{String, Int}}`|elements of the detected chemical|
 |`seriesanalyzedchemical`|`Vector{<: AbstractChemical}`|chemical entities directly analyzed in each stage of instrumental analysis|
 |`seriesanalyzedisotopes`|`Vector{Vector{Pair{String, Int}}}`|delocalized isotope replacements of serially analyzed chemicals|
 |`seriesanalyzedcharge`|`Vector{Int}`|charge states of serially analyzed chemicals|
-|`seriesanalyzedelements`|`Vector{Vector{Pair{String, Int}}}`|elements of serially analyzed chemicals|
 |`msstage`|`Int`|number of MS stages the chemical has been through|
-|`mmi`|`Float64`|monoisotopic mass|
-|`molarmass`|`Float64`|molar mass|
-|`mz`|`Float64`|m/z, mass-to-charge ratio|
+|`mmi`|`AbstractFloat`|monoisotopic mass|
+|`molarmass`|`AbstractFloat`|molar mass|
+|`mz`|`AbstractFloat`|m/z, mass-to-charge ratio|
 
 Specific methods for attributes are defined for each intrinsic chemical type at different chemical levels:
 * Entity Level: attribute of the corresponding chemical entity.
@@ -274,8 +319,7 @@ retentiontime(chemical) == 10 # Already defined as accessing :retentiontime thro
 |`ncore`|`Int`|number of core chemical|
 
 When isotopes are involved in addut ion formation for an object `adduct_ion` where `chemical = ioncore(adduct_ion)::ChemicalType` and `adduct = ionadduct(adduct_ion)::Existing_Scheme`, there are two solutions.
-1. If `ChemicalType` is a customized chemical type, define type-specific `completescheme`
-    Define the following methods,
+1. If `ChemicalType` is a customized chemical type, define type-specific `elementalscheme`,
     ```julia
     elementalscheme(chemical::ChemicalType, scheme::Affected_Scheme) # Ionization
     elementalscheme(adduct_ion::AdductIon{ChemicalType, Existing_Scheme}, scheme::Affected_Scheme) # Fragmentation (Neutral Loss)
@@ -291,21 +335,28 @@ When isotopes are involved in addut ion formation for an object `adduct_ion` whe
     end # Deuterium-labeled PC on methyl group (location = :Me) or other part
     struct Me <: AbstractChemical end # Methenium
     struct DLMe <: AbstractChemical end # Deuterium-labeled Methinium 
-    elementalscheme(pc::DLPC, ::ElementalScheme{false, Me}) = pc.location == :Me ? ElementalScheme(false, DLMe()) : ElementalScheme(false, Me())
+    elementalscheme(pc::DLPC, ::ElementalScheme{false, Me}) = pc.location == :Me ? ChemicalLoss(DLMe()) : ChemicalLoss(Me())
+    ionize(DLPC(:Me); adduct = ChemicalLoss(Me())) # [DLPC-DLMe]-
     ```
-    For more details, see example in file `test/objects/customized.jl`.
+    User can use the following functions to easily generating type definition:
+    * `ESType(gain, T)`: `ElementalScheme{gain, <:T}`.
+    * `CLType(T)`: `ElementalScheme{false, <:T}`.
+    * `CGType(gain, T)`: `ElementalScheme{true, <:T}`.
+    * `SESType(S, T)`: `StructuralElementalScheme{<:S, <:T}`.
+    * `SESType(S)`: `StructuralElementalScheme{<:S}`.
+
+    For more details, see documentation of function `completescheme`.
+
 2. If `ChemicalType` is `Chemical`, define an attribute `:structure` for the `chemical`. The attribute should be ionadduct-(scheme-scheme pairs) pairs. `structure_search` finds this attribute, and extracts the value of key `adduct`. 
     ```julia
-    # loss_me: [M-CH3]-, i.e. ElementalScheme(false, Chemical("Me", "CH3")}
-    # loss_cd3: [M-CD3]-, i.e. ElementalScheme(false, Chemical("Me[D3]", "CD3"))
     chemical = Chemical("18:0 PC-d9", "C44H79NO8PD9")
-    loss_me = ElementalScheme(false, Chemical("Me", "CH3"))
-    loss_cd3 = ElementalScheme(false, Chemical("Me[D3]", "CD3"))
+    loss_me = ChemicalLoss(Chemical("Me", "CH3"; charge = -1))
+    loss_cd3 = ChemicalLoss(Chemical("Me[D3]", "CD3"; charge = -1))
     push!(chemical.property, :structure => [nothing => [loss_me => loss_cd3]]) # Use nothing for core chemical
     elementalscheme(chemical, ChemicalGain(Proton())) == ChemicalGain(Proton()) # No key Protonation()
     elementalscheme(chemical, loss_me) == loss_cd3
     ```
-    For more details, see example in file `test/objects/generic.jl`.
+    For more details, see documentation of function `completescheme`.
 ## Isotopic abundance and Isotopologues
 There are three related functions
 * `isotopicabundance`
@@ -321,7 +372,7 @@ There are three related functions
     This function is similar to `Isotopologues`; it computes isotopologues of given precursor(s) and additionally computes the abundance of fragments with given fragmentation patterns. Both function can compute MSⁿ isotopologues. The key difference is that this function is recursive and abundance is calculated from the beginning. It generally performs slightly slower for multiple MS stages and abundance is normalized in the first stage and filtered in all stages.
 
 Isotopologues table can be aggregated using `group_isotopologues`.
-## Mass Spectrometer 
+## MS analysis
 There are six functions to simulate ions in mass spectrometer. 
 1. `Ionization`: ionizing target chemical(s).
 2. `Isolation`: isolating target ion(s) with specific m/z values and resolution to enter the next MS stage. 
@@ -338,28 +389,25 @@ The following common mass analyzer are defined.
 5. `Orbitrap`
 6. `FourierTransformIonCyclotronResonance` or `FTICR`
 
-Default settings related to resolution, and isolation window are also defined for each analyzer. To create generic mass analyzer, use `MSAnalyzer`.
+Default settings related to resolution, and isolation window are set for each analyzer. To create generic mass analyzer, use `MSAnalyzer`.
 ## Co-eluting isobars
 The function `CoelutingIsobars` creates an object `CoelutingIsobars` with a vector of elution function-criteria pair, a vector of ms analyzer-criteria pair, and a target chemical table.
 
 This object can be further aggregated using `isobar_table`.
 
 ## Other Functions
-* `parent_element`.
-* `major_isotope`.
-* `minor_isotope`.
-* `iselement`.
-* `isisotope` (including element).
 * `ischemicalequal`: whether two chemicals are chemically equivalent.
-* `ischemicalequaltransform`: return an object for comparison with other chemicals by `istransformedadduct`.
-* `istransformedchemicalequal`: whether two chemicals are chemically equivalent after applying `istransformedchemicalequal`.
-* `isadductequal`: whether two adducts chemically equivalent.
-* `isadductequaltransform`: return an object for comparison with other adducts by `istransformedadduct`.
-* `istransformedadduct`: whether two adducts are chemically equivalent after applying `isadductequaltransform`.
 * `match_chemical`: match detected chemicals with reference library.
+* `isotopomerize`: convert any other chemical types into `Isotopomers`-like type (including schema).
+* `groupedisotopomerize`: convert any other chemical types into `Groupedisotopomers`-like type (including schema).
+* `parent_element`: find the element of an isotope, e.g. "C" for "[13C]", "O" for "[18O]", and etc.
+* `major_isotope`: find the most abundunt isotope of an element, e.g. "[12C]" for "C", "[16O]" for "O", etc.
+* `minor_isotope`: find the `i`th abundunt minor isotope (excluding most abundunt isotope), e.g. "[13C]" for "C" and `i=1`, "[17O]" for "O" and `i=2`, and etc.
+* `iselement`: determine if a string is an element, e.g. "C", "O", and etc.
+* `isisotope`: determine if a string is an isotope (including element), e.g. "[13C]", "O", and etc.
 * `acrit`: create absolute criterion.
 * `rcrit`: create relative criterion.
-* `crit`: create both absolute and relative criterion.
+* `crit`: create both absolute and relative criteria.
 * `@ri_str`: real number interval.
 * `plot_resolving_power` and `plot_resolving_power!`: plot the function of m/z to resolving_power.
 * `plot_window` and `plot_window!`: plot the window function.

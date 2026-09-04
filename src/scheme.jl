@@ -56,7 +56,22 @@ scheme_abbr() = SCHEME_ABBR
 """
     set_schabbr!(abbr::AbstractString, chemical::AbstractChemical)
 
-Set `abbr` to be an abbreviation of scheme chemical `fm` for default `AdductParser`. 
+Set `abbr` to be an abbreviation of scheme chemical `fm` for default [`AdductParser`](@ref). 
+
+# Examples
+```julia
+julia> serine = Chemical("Serine", "C3H5NO2"; abbreviation = "Ser") 
+Serine
+
+julia> set_schabbr!("Ser", serine)
+Dict{String, AbstractChemical} with 37 entries:
+  "HCOOH"     => Formic Acid
+  "Me"        => Methenium
+  ⋮           => ⋮
+
+julia> parse_adduct("[M-H-Ser]-")
+(adduct = Loss_Proton|Loss_Serine, ncore = 1)
+```
 """
 set_schabbr!(abbr::AbstractString, chemical::AbstractChemical) = push!(scheme_abbr(), abbr => chemical)
 
@@ -79,8 +94,20 @@ end
 """
     set_scheme!(nm::AbstractString, scheme::AbstractScheme)
 
-Set `nm` to be `scheme` for default `SchemeParser`.
+Set `nm` to be `scheme` for default `AdductParser`.
 
-For customized scheme types, this function is required to make `nm` parsed into `scheme` by `parse_scheme`.
+For customized scheme types, this function is required to make `nm` parsed into `scheme` by [`parse_adduct`](@ref).
+
+# Examples
+```julia
+julia> struct NewScheme <: AbstractCompleteScheme end 
+
+julia> set_scheme!("[+NSC]+", NewScheme())
+Dict{String, AbstractScheme} with 1 entry:
+  "[+NSC]+" => NewScheme
+
+julia> parse_adduct("[2M+NSC]+")
+(adduct = NewScheme, ncore = 2)
+```
 """
 set_scheme!(nm::AbstractString, scheme::AbstractScheme) = push!(scheme_name(), nm => scheme)

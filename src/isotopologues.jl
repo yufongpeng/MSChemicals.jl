@@ -1,3 +1,8 @@
+include(joinpath("isotopologues", "utils.jl"))
+include(joinpath("isotopologues", "ms1.jl"))
+include(joinpath("isotopologues", "ms2.jl"))
+include(joinpath("isotopologues", "msn.jl"))
+
 """
     Isotopologues(chemical; abundance = 1, abtype = :max, threshold = rcrit(1e-4), precise = false, sort = false)
     Isotopologues(formula_name; chemicalparser, abundance = 1, abtype = :max, threshold = rcrit(1e-4), precise = false, sort = false)
@@ -14,20 +19,20 @@ A `Table` of isotopologues of
 * `tbl::Table`: multiple chemicals in column `Chemical` with abundance in column `Abundance1`, `Abundance2`, ... (optional). 
 * `chemicals::Vector`: multiple chemicals.
 
-This function is similar to `TandemIsotopologues`; the key difference is that it is iterative and abundance is calculated in the last stage. It performs faster for multiple MS stages and abundance is normalized and filtered at the end.
+This function is similar to [`TandemIsotopologues`](@ref); the key difference is that it is iterative and abundance is calculated in the last stage. It performs faster for multiple MS stages and abundance is normalized and filtered at the end.
 Only isotopic abundance of parent elements are considered, and isotopes are viewed as intentionally labeled elements. 
 
 For MSⁿ transition transition, product can be any scheme, including `<:AbstractStructuralScheme`, `<:AbstractStructuralScheme` or formula starting with `-` or `+` (See [`ChemicalExpressionParser`](@ref) for valid string). 
 
 # Keyword Arguments
-* `chemicalparser::AbstractChemicalParser`: parser for `formula_name` or `formula_name_pair`. The default parser is `ChemicalTransitionParser(ChemicalExpressionParser(; charge = 1, loss = 0, gain = 0))`.
+* `chemicalparser::AbstractChemicalParser`: parser for `formula_name` or `formula_name_pair`. The default parser is `ChemicalTransitionParser(ChemicalExpressionParser(; charge = 1, loss = 0, gain = 0))` (See [`ChemicalTransitionParser`](@ref)).
 * `abundance` sets the abundance of the isotope specified by `abtype`. When the input is MS/MS transition, this sets the abundanc of detected chemical. It can also be column `Abundance` of `tbl`.
 * `abtype`.
     * `:max`: the most abundant isotopologue.
     * `:input`: the input isotopologue.
     * `:list`: sum of listed isotopologues.
     * `:total`: sum of total isotopologues.
-* `threshold` can be a number or criteria, representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
+* `threshold` can be a number or [`Criteria`](@ref), representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
 * `threading`: force to use multiple threads (`true`) or single thread (`false`); `nothing` lets the program determine. 
 * `precise`: whether using `Bigfloat` for abundance computation.
 * `sort`: whether to sort the results by mass.
@@ -39,7 +44,7 @@ For MSⁿ transition transition, product can be any scheme, including `<:Abstrac
     * PC 18:1/18:0 and fatty acyl 18:0 fragment is also valid but requires additional computation of isobaric contribution of another fatty acid 18:1. 
 
 !!! note "Special precaution for applying to MSⁿ transition with chemical gain"
-    Any intermediate chemical gains are not allowed.
+    Any intermediate [`ChemicalGain`](@ref) are not allowed.
 """
 Isotopologues(input_chemical::AbstractChemical; 
         chemicalparser = ChemicalTransitionParser(),
@@ -236,14 +241,15 @@ Only isotopic abundance of parent elements are considered, and isotopes are view
 For MSⁿ transition transition, product can be any scheme, including `<:AbstractStructuralScheme`, `<:AbstractStructuralScheme` or formula starting with `-` or `+` (See [`ChemicalExpressionParser`](@ref) for valid string). 
 
 # Keyword Arguments
-* `chemicalparser::AbstractChemicalParser`: parser for `formula_name`, `formula_name_pair` or `product`. The default parser is `ChemicalTransitionParser(ChemicalExpressionParser(; charge = 1, loss = 0, gain = 0))`.
-* `abundance` sets the abundance of the precursor isotope specified by `abtype`. It can be a vector when the input is MS/MS transition, and abundances are matched to MS stages from the end (the last element matches to the last MS stage). If the length of abundance is smaller, the remaining elemets are filled using `transmission`. It can also be column `Abundance` of `tbl`.
+* `chemicalparser::AbstractChemicalParser`: parser for `formula_name`, `formula_name_pair` or `product`. The default parser is `ChemicalTransitionParser(ChemicalExpressionParser(; charge = 1, loss = 0, gain = 0))` (See [`ChemicalTransitionParser`](@ref)).
+* `abundance` sets the abundance of the precursor isotope specified by `abtype`. It can be a vector when the input is MS/MS transition, and abundances are matched to MS stages from the end (the last element matches to the last MS stage). 
+If the length of abundance is smaller, the remaining elemets are filled using `transmission`. It can also be column `Abundance` of `tbl`.
 * `abtype`.
     * `:max`: the most abundant isotopologue.
     * `:input`: the input isotopologue.
     * `:list`: sum of listed isotopologues.
     * `:total`: sum of total isotopologues.
-* `threshold` can be a number or criteria, representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
+* `threshold` can be a number or [`Criteria`](@ref), representing the lower limit of abundance (absolute and/or relative to maximal value of each spectrum). 
 * `product::Vector`: product chemicals. It can also be column `Product` of `tbl`.
 * `transmission`: transmission rate between precursors (MS/MS transition). It is utlized when all elements of `abundance` are used out. It can also be column `Transmission` of `tbl`.
 * `proportion::Vector`: proportion of fragmentation relative to precursor. It can also be column `Proportion` of `tbl`.
@@ -261,7 +267,7 @@ For MSⁿ transition transition, product can be any scheme, including `<:Abstrac
     * PC 18:1/18:0 and fatty acyl 18:0 fragment is also valid but requires additional computation of isobaric contribution of another fatty acid 18:1. 
 
 !!! note "Special precaution for applying to MSⁿ transition with chemical gain"
-    After any chemical gain, the subsequent products are considered randomly fragmented from the gained precursor without considering any structure introduced by chemical gain.
+    After any [`ChemicalGain`](@ref), the subsequent products are considered randomly fragmented from the gained precursor without considering any structure introduced by chemical gain.
 """
 function TandemIsotopologues(input_chemical::AbstractChemical; 
             chemicalparser = ChemicalTransitionParser(ChemicalExpressionParser(; charge = 1, loss = 0, gain = 0)),

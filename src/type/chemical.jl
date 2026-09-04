@@ -10,7 +10,10 @@ Unstructured chemical type with its name, elements (formula), and additional pro
 
 # Constructors
     Chemical(name::AbstractString, elements::Vector{Pair{String, Int}}, property::Vector{Pair{Symbol, Any}})
+    Chemical(name::AbstractString, elements::Dict{String, Int}, property::Vector{Pair{Symbol, Any}})
+    Chemical(name::AbstractString, formula::AbstractString, property::Vector{Pair{Symbol, Any}})
     Chemical(name::AbstractString, elements::Vector{Pair{String, Int}}; kwargs...)
+    Chemical(name::AbstractString, elements::Dict{String, Int}; kwargs...)
     Chemical(name::AbstractString, formula::AbstractString; kwargs...)
 
 `kwargs` are collected into field `property`.
@@ -21,8 +24,9 @@ struct Chemical <: AbstractChemical
     property::Vector{Pair{Symbol, Any}}
 end
 
-Chemical(name::AbstractString, elements::Vector{Pair{String, Int}}; kwargs...) = Chemical(name, elements, collect(kwargs))
-Chemical(name::AbstractString, formula::AbstractString; kwargs...) = Chemical(name, chemicalelements(formula), collect(kwargs))
+Chemical(name::AbstractString, elements; kwargs...) = Chemical(name, elements, collect(kwargs))
+Chemical(name::AbstractString, formula::AbstractString, property) = Chemical(name, chemicalelements(formula), property)
+Chemical(name::AbstractChemical, elements::Dict, property) = Chemical(name, collect(elements), property)
 
 """
     FormulaChemical <: AbstractChemical
@@ -35,7 +39,10 @@ Unstructured chemical type with elements (formula), and additional properties. C
 
 # Constructors
     FormulaChemical(elements::Vector{Pair{String, Int}}, property::Vector{Pair{Symbol, Any}})
+    FormulaChemical(elements::Dict{String, Int}, property::Vector{Pair{Symbol, Any}})
+    FormulaChemical(formula::AbstractString, property::Vector{Pair{Symbol, Any}})
     FormulaChemical(elements::Vector{Pair{String, Int}}; kwargs...)
+    FormulaChemical(elements::Dict{String, Int}; kwargs...)
     FormulaChemical(formula::AbstractString; kwargs...)
 
 `kwargs` are collected into field `property`.
@@ -45,8 +52,9 @@ struct FormulaChemical <: AbstractChemical
     property::Vector{Pair{Symbol, Any}}
 end
 
-FormulaChemical(elements::Vector{Pair{String, Int}}; kwargs...) = FormulaChemical(elements, collect(kwargs))
-FormulaChemical(formula::AbstractString; kwargs...) = FormulaChemical(chemicalelements(formula), collect(kwargs))
+FormulaChemical(elements; kwargs...) = FormulaChemical(elements, collect(kwargs))
+FormulaChemical(formula::AbstractString, property) = FormulaChemical(chemicalelements(formula), property)
+FormulaChemical(elements::Dict, property) = FormulaChemical(collect(elements), property)
 
 """
     ChemicalTransition{T<:AbstractChemicalsSchema} <: AbstractChemical
@@ -96,12 +104,25 @@ struct Isobars{T<:AbstractChemical, N} <: AbstractChemical
     end
     function Isobars(chemicals::Vector{T}, abundance::Vector{N}) where {T<:ChemicalTransition, N}
         allequal(msstage, chemicals) || throw(ArgumentError("All chemicals should have the same `msstage`."))
+        length(chemicals) == length(abundance) || throw(ArgumentError("The length of `chemicals` and `abundance` are not equaled."))
         id = sortperm(abundance; rev = true)
-        ab = hcat([abundance[id] for _ in eachindex(chemicals)]...)
+        ab = hcat([abundance[id] for _ in 1:msstage(chemicals[begin])]...)
+        new{T, N}(chemicals[id], ab)
+    end
+    function Isobars(chemicals::Vector{T}, abundance::Vector{Vector{N}}) where {T<:ChemicalTransition, N}
+        allequal(msstage, chemicals) || throw(ArgumentError("All chemicals should have the same `msstage`."))
+        length(abundance) == msstage(chemicals[begin]) || throw(ArgumentError("The length of `abundance` should equal to `msstage`."))
+        for ab in abundance
+            length(chemicals) == length(ab) || throw(ArgumentError("The length of chemicals and each abundance are not equaled."))
+        end
+        id = sortperm(abundance[end]; rev = true)
+        ab = hcat([ab[id] for ab in abundance]...)
         new{T, N}(chemicals[id], ab)
     end
     function Isobars(chemicals::Vector{T}, abundance::Matrix{N}) where {T<:ChemicalTransition, N}
         allequal(msstage, chemicals) || throw(ArgumentError("All chemicals should have the same `msstage`."))
+        size(abundance, 1) == length(chemicals) || throw(ArgumentError("The column size of `abundance` should equal to the length of `chemicals`."))
+        size(abundance, 2) == msstage(chemicals[begin]) || throw(ArgumentError("The row size of `abundance` should equal to `msstage`."))
         id = sortperm(abundance[:, end]; rev = true)
         new{T, N}(chemicals[id], abundance[id, :])
     end
@@ -209,43 +230,34 @@ abstract type AbstractChemicalWrapper{T<:AbstractChemical} <: AbstractChemical e
 
 """
     Electron{T} <: AbstractChemicalWrapper{T}
-    Electron()
+    Electron(constructor, args...; kwargs...) 
+    Electron(name = "Electron", elements = Pair{String, Int}[]; charge = -1, abbreviation = "e")
 
 Electron.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Electron"`.
-* `chemicalelements`: `Pair{String, Int}[]`.
-* `charge`: `-1`.
-* `abbreviation`: `"e"`.
 """
 struct Electron{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Proton{T} <: AbstractChemicalWrapper{T}
-    Proton()
+    Proton(constructor, args...; kwargs...) 
+    Proton(name = "Proton", elements = ["H" => 1]; charge = 1, abbreviation = "H")
 
 Proton.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Proton"`.
-* `chemicalelements`: `Pair{String, Int}["H" => 1]`.
-* `charge`: `1`.
-* `abbreviation`: `"H"`.
 """
 struct Proton{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Water{T} <: AbstractChemicalWrapper{T}
-    Water()
+    Water(constructor, args...; kwargs...) 
+    Water(name = "Water", elements = ["H" => 2, "O" => 1]; charge = 0, abbreviation = "H2O")
 
 Water.
 
@@ -263,259 +275,196 @@ struct Water{T} <: AbstractChemicalWrapper{T}
 end 
 """
     Ammonia{T} <: AbstractChemicalWrapper{T}
-    Ammonia()
+    Ammonia(constructor, args...; kwargs...) 
+    Ammonia(name = "Ammonia", elements = ["N" => 1, "H" => 3]; charge = 0, abbreviation = "NH3")
 
 Ammonia.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Ammonia"`.
-* `chemicalelements`: `Pair{String, Int}["N" => 1, "H" => 3]`.
-* `charge`: `0`.
-* `abbreviation`: `"NH3"`.
 """
 struct Ammonia{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Ammonium{T} <: AbstractChemicalWrapper{T}
-    Ammonium()
+    Ammonium(constructor, args...; kwargs...) 
+    Ammonium(name = "Ammonium", elements = ["N" => 1, "H" => 4]; charge = 1, abbreviation = "NH4")
 
 Ammonium.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Ammonium"`.
-* `chemicalelements`: `Pair{String, Int}["N" => 1, "H" => 4]`.
-* `charge`: `1`.
-* `abbreviation`: `"NH4"`.
 """
 struct Ammonium{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Sodium{T} <: AbstractChemicalWrapper{T}
-    Sodium()
+    Sodium(constructor, args...; kwargs...) 
+    Sodium(name = "Sodium", elements = ["Na" => 1]; charge = 1, abbreviation = "Na")
 
 Sodium.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Sodium"`.
-* `chemicalelements`: `Pair{String, Int}["Na" => 1]`.
-* `charge`: `1`.
-* `abbreviation`: `"Na"`.
 """
 struct Sodium{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Potassium{T} <: AbstractChemicalWrapper{T}
-    Potassium()
+    Potassium(constructor, args...; kwargs...) 
+    Potassium(name = "Potassium", elements = ["K" => 1]; charge = 1, abbreviation = "K")
 
 Potassium.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Potassium"`.
-* `chemicalelements`: `Pair{String, Int}["K" => 1]`.
-* `charge`: `1`.
-* `abbreviation`: `"K"`.
 """
 struct Potassium{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Lithium{T} <: AbstractChemicalWrapper{T}
-    Lithium()
+    Lithium(constructor, args...; kwargs...) 
+    Lithium(name = "Lithium", elements = ["Li" => 1]; charge = 1, abbreviation = "Li")
 
 Lithium.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Lithium"`.
-* `chemicalelements`: `Pair{String, Int}["Li" => 1]`.
-* `charge`: `1`.
-* `abbreviation`: `"Li"`.
 """
 struct Lithium{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Silver{T} <: AbstractChemicalWrapper{T}
-    Silver()
+    Silver(constructor, args...; kwargs...) 
+    Silver(name = "Silver", elements = ["Ag" => 1]; charge = 1, abbreviation = "Ag")
 
 Silver.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Silver"`.
-* `chemicalelements`: `Pair{String, Int}["Ag" => 1]`.
-* `charge`: `1`.
-* `abbreviation`: `"Ag"`.
 """
 struct Silver{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Acetate{T} <: AbstractChemicalWrapper{T}
-    Acetate()
+    Acetate(constructor, args...; kwargs...) 
+    Acetate(name = "Acetate", elements = ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1]; 
+            charge = -1, abbreviation = "OAc")
 
 Acetate.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Acetate"`.
-* `chemicalelements`: `Pair{String, Int}["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1]`.
-* `charge`: `-1`.
-* `abbreviation`: `"OAc"`.
 """
 struct Acetate{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Formate{T} <: AbstractChemicalWrapper{T}
-    Formate()
+    Formate(constructor, args...; kwargs...) 
+    Formate(name = "Formate", elements = ["H" => 1, "C" => 1, "O" => 1, "O" => 1]; 
+            charge = -1, abbreviation = "OFo")
 
 Formate.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Formate"`.
-* `chemicalelements`: `Pair{String, Int}["H" => 1, "C" => 1, "O" => 1, "O" => 1]`.
-* `charge`: `-1`.
-* `abbreviation`: `"OFo"`.
 """
 struct Formate{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     AceticAcid{T} <: AbstractChemicalWrapper{T}
-    AceticAcid()
+    AceticAcid(constructor, args...; kwargs...) 
+    AceticAcid(name = "AceticAcid", elements = ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1, "H" => 1]; 
+            charge = 0, abbreviation = "HOAc")
 
 Acetic acid.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"AceticAcid"`.
-* `chemicalelements`: `Pair{String, Int}["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1, "H" => 1]`.
-* `charge`: `0`.
-* `abbreviation`: `"HOAc"`.
 """
 struct AceticAcid{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     FormicAcid{T} <: AbstractChemicalWrapper{T}
-    FormicAcid()
+    FormicAcid(constructor, args...; kwargs...) 
+    FormicAcid(name = "FormicAcid", elements = ["H" => 1, "C" => 1, "O" => 1, "O" => 1, "H" => 1]; 
+            charge = 0, abbreviation = "HOFo")
 
 Formic acid.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"FormicAcid"`.
-* `chemicalelements`: `Pair{String, Int}["H" => 1, "C" => 1, "O" => 1, "O" => 1, "H" => 1]`.
-* `charge`: `0`.
-* `abbreviation`: `"HOFo"`.
 """
 struct FormicAcid{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     MethylAcetate{T} <: AbstractChemicalWrapper{T}
-    MethylAcetate()
+    MethylAcetate(constructor, args...; kwargs...) 
+    MethylAcetate(name = "MethylAcetate", elements = ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1, "C" => 1, "H" => 3]; 
+            charge = 0, abbreviation = "MeOAc")
 
 Methyl acetate.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"MethylAcetate"`.
-* `chemicalelements`: `Pair{String, Int}["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1, "C" => 1, "H" => 3]`.
-* `charge`: `0`.
-* `abbreviation`: `"MeOAc"`.
 """
 struct MethylAcetate{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     MethylFormate{T} <: AbstractChemicalWrapper{T}
-    MethylFormate()
+    MethylFormate(constructor, args...; kwargs...) 
+    MethylFormate(name = "MethylFormate", elements = ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1, "C" => 1, "H" => 3]; 
+            charge = 0, abbreviation = "MeOFo")
 
 Methyl formate.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"MethylFormate"`.
-* `chemicalelements`: `Pair{String, Int}["H" => 1, "C" => 1, "O" => 1, "O" => 1, "C" => 1, "H" => 3]`.
-* `charge`: `0`.
-* `abbreviation`: `"MeOFo"`.
 """
 struct MethylFormate{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Fluoride{T} <: AbstractChemicalWrapper{T}
-    Fluoride()
+    Fluoride(constructor, args...; kwargs...) 
+    Fluoride(name = "Fluoride", elements = ["F" => 1]; charge = -1, abbreviation = "F")
 
 Fluoride.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Fluoride"`.
-* `chemicalelements`: `Pair{String, Int}["F" => 1]`.
-* `charge`: `-1`.
-* `abbreviation`: `"F"`.
 """
 struct Fluoride{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Chloride{T} <: AbstractChemicalWrapper{T}
-    Chloride()
+    Chloride(constructor, args...; kwargs...) 
+    Chloride(name = "Chloride", elements = ["Cl" => 1]; charge = -1, abbreviation = "Cl")
 
 Chloride.
 
 # Fields 
 * `chemical::T`.
-
-# Attributes (default)
-* `name`: `"Chloride"`.
-* `chemicalelements`: `Pair{String, Int}["Cl" => 1]`.
-* `charge`: `-1`.
-* `abbreviation`: `"Cl"`.
 """
 struct Chloride{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 """
     Methenium{T} <: AbstractChemicalWrapper{T}
-    Methenium()
+    Methenium(constructor, args...; kwargs...) 
+    Methenium(name = "Methenium", elements = ["C" => 1, "H" => 3]; charge = -1, abbreviation = "Me")
 
 Methenium.
 
@@ -532,24 +481,32 @@ struct Methenium{T} <: AbstractChemicalWrapper{T}
     chemical::T
 end 
 
-Electron() = Electron(Chemical("Electron", Pair{String, Int}[]; charge = -1, abbreviation = "e"))
-Proton() = Proton(Chemical("Proton", ["H" => 1]; charge = 1, abbreviation = "H"))
-Water() = Water(Chemical("Water", ["H" => 2, "O" => 1]; charge = 0, abbreviation = "H2O"))
-Ammonia() = Ammonia(Chemical("Ammonia", ["N" => 1, "H" => 3]; charge = 0, abbreviation = "NH3"))
-Ammonium() = Ammonium(Chemical("Ammonium", ["N" => 1, "H" => 4]; charge = 1, abbreviation = "NH4"))
-Sodium() = Sodium(Chemical("Sodium", ["Na" => 1]; charge = 1, abbreviation = "Na"))
-Potassium() = Potassium(Chemical("Potassium", ["K" => 1]; charge = 1, abbreviation = "K"))
-Lithium() = Lithium(Chemical("Lithium", ["Li" => 1]; charge = 1, abbreviation = "Li"))
-Silver() = Silver(Chemical("Silver", ["Ag" => 1]; charge = 1, abbreviation = "Ag"))
-Acetate() = Acetate(Chemical("Acetate", ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1]; charge = -1, abbreviation = "OAc"))
-Formate() = Formate(Chemical("Formate", ["H" => 1, "C" => 1, "O" => 1, "O" => 1]; charge = -1, abbreviation = "OFo"))
-AceticAcid() = AceticAcid(Chemical("Acetic Acid", ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1, "H" => 1]; charge = 0, abbreviation = "HOAc"))
-FormicAcid() = FormicAcid(Chemical("Formic Acid", ["H" => 1, "C" => 1, "O" => 1, "O" => 1, "H" => 1]; charge = -1, abbreviation = "HOFo"))
-MethylAcetate() = MethylAcetate(Chemical("Methyl Acetate", ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1, "C" => 1, "H" => 3]; charge = 0, abbreviation = "MeOAc"))
-MethylFormate() = MethylFormate(Chemical("Methyl Formate", ["H" => 1, "C" => 1, "O" => 1, "O" => 1, "C" => 1, "H" => 3]; charge = 0, abbreviation = "MeOFo"))
-Fluoride() = Fluoride(Chemical("Fluoride", ["F" => 1]; charge = -1, abbreviation = "F"))
-Chloride() = Chloride(Chemical("Chloride", ["Cl" => 1]; charge = -1, abbreviation = "Cl"))
-Methenium() = Methenium(Chemical("Methenium", ["C" => 1, "H" => 3]; charge = -1, abbreviation = "Me"))
+for fn in ["Electron", "Proton", "Water", "Ammonia", "Ammonium", "Sodium", "Potassium", "Lithium", "Silver", "Acetate", "Formate", "AceticAcid", "FormicAcid", "MethylAcetate", "MethylFormate", "Fluoride", "Chloride", "Methenium"]
+    expr_l = :(fn(constructor::Type{<:AbstractChemical}, args...; kwargs...)) 
+    expr_r = :(fn(constructor(args...; kwargs...)))
+    expr_l.args[1] = Symbol(fn)
+    expr_r.args[1] = Symbol(fn)
+    eval(Expr(:(=), expr_l, expr_r))
+end
+
+Electron(name::AbstractString = "Electron", elements = Pair{String, Int}[]; charge = -1, abbreviation = "e", kwargs...) = Electron(Chemical(name, elements; charge, abbreviation, kwargs...))
+Proton(name::AbstractString = "Proton", elements = ["H" => 1]; charge = 1, abbreviation = "H", kwargs...) = Proton(Chemical(name, elements; charge, abbreviation, kwargs...))
+Water(name::AbstractString = "Water", elements = ["H" => 2, "O" => 1]; charge = 0, abbreviation = "H2O", kwargs...) = Water(Chemical(name, elements; charge, abbreviation, kwargs...))
+Ammonia(name::AbstractString = "Ammonia", elements = ["N" => 1, "H" => 3]; charge = 0, abbreviation = "NH3", kwargs...) = Ammonia(Chemical(name, elements; charge, abbreviation, kwargs...))
+Ammonium(name::AbstractString = "Ammonium", elements = ["N" => 1, "H" => 4]; charge = 1, abbreviation = "NH4", kwargs...) = Ammonium(Chemical(name, elements; charge, abbreviation, kwargs...))
+Sodium(name::AbstractString = "Sodium", elements = ["Na" => 1]; charge = 1, abbreviation = "Na", kwargs...) = Sodium(Chemical(name, elements; charge, abbreviation, kwargs...))
+Potassium(name::AbstractString = "Potassium", elements = ["K" => 1]; charge = 1, abbreviation = "K", kwargs...) = Potassium(Chemical(name, elements; charge, abbreviation, kwargs...))
+Lithium(name::AbstractString = "Lithium", elements = ["Li" => 1]; charge = 1, abbreviation = "Li", kwargs...) = Lithium(Chemical(name, elements; charge, abbreviation, kwargs...))
+Silver(name::AbstractString = "Silver", elements = ["Ag" => 1]; charge = 1, abbreviation = "Ag", kwargs...) = Silver(Chemical(name, elements; charge, abbreviation, kwargs...))
+Acetate(name::AbstractString = "Acetate", elements = ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1]; charge = -1, abbreviation = "OAc", kwargs...) = Acetate(Chemical(name, elements; charge, abbreviation, kwargs...))
+Formate(name::AbstractString = "Formate", elements = ["H" => 1, "C" => 1, "O" => 1, "O" => 1]; charge = -1, abbreviation = "OFo", kwargs...) = Formate(Chemical(name, elements; charge, abbreviation, kwargs...))
+AceticAcid(name::AbstractString = "Acetic Acid", elements = ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1, "H" => 1]; charge = 0, abbreviation = "HOAc", kwargs...) = AceticAcid(Chemical(name, elements; charge, abbreviation, kwargs...))
+FormicAcid(name::AbstractString = "Formic Acid", elements = ["H" => 1, "C" => 1, "O" => 1, "O" => 1, "H" => 1]; charge = -1, abbreviation = "HOFo", kwargs...) = FormicAcid(Chemical(name, elements; charge, abbreviation, kwargs...))
+MethylAcetate(name::AbstractString = "Methyl Acetate", elements = ["C" => 1, "H" => 3, "C" => 1, "O" => 1, "O" => 1, "C" => 1, "H" => 3]; charge = 0, abbreviation = "MeOAc", kwargs...) = MethylAcetate(Chemical(name, elements; charge, abbreviation, kwargs...))
+MethylFormate(name::AbstractString = "Methyl Formate", elements = ["H" => 1, "C" => 1, "O" => 1, "O" => 1, "C" => 1, "H" => 3]; charge = 0, abbreviation = "MeOFo", kwargs...) = MethylFormate(Chemical(name, elements; charge, abbreviation, kwargs...))
+Fluoride(name::AbstractString = "Fluoride", elements = ["F" => 1]; charge = -1, abbreviation = "F", kwargs...) = Fluoride(Chemical(name, elements; charge, abbreviation, kwargs...))
+Chloride(name::AbstractString = "Chloride", elements = ["Cl" => 1]; charge = -1, abbreviation = "Cl", kwargs...) = Chloride(Chemical(name, elements; charge, abbreviation, kwargs...))
+Methenium(name::AbstractString = "Methenium", elements = ["C" => 1, "H" => 3]; charge = -1, abbreviation = "Me", kwargs...) = Methenium(Chemical(name, elements; charge, abbreviation, kwargs...))
 
 """
     const GenericChemical = Union{Chemical, FormulaChemical, <:AbstractChemicalWrapper{Chemical}, <:AbstractChemicalWrapper{FormulaChemical}}
@@ -564,9 +521,9 @@ const GenericChemical = Union{Chemical, FormulaChemical, <:AbstractChemicalWrapp
 Abstract type for adduct ions with core chemical type `S` and adduct type `T`.
 
 # Special attributes
-* `ncore -> Int`: number of core chemical "M" in adduct ion representation "[M+X]n+". 
-* `ioncore -> S`: the core chemical undergoing ionization. 
-* `ionadduct -> T`: the adduct formed during ionization. 
+* [`ncore`](@ref) `-> Int`: number of core chemical "M" in adduct ion representation "[M+X]n+". 
+* [`ioncore`](@ref) `-> S`: the core chemical undergoing ionization. 
+* [`ionadduct`](@ref) `-> T`: the adduct formed during ionization. 
 """
 abstract type AbstractAdductIon{S, T} <: AbstractChemical end
 
@@ -597,4 +554,4 @@ struct AdductIon{S<:AbstractChemical, T<:AbstractScheme} <: AbstractAdductIon{S,
 end
 
 AdductIon(cc::AbstractChemical, a::AbstractScheme) = AdductIon(cc, a, 1)
-AdductIon(cc::AbstractChemical, a::AbstractString) = AdductIon(cc, parse_adduct(a; args = true)...)
+AdductIon(cc::AbstractChemical, a::AbstractString, n = 1) = AdductIon(cc, parse_adduct(a; args = true)...)

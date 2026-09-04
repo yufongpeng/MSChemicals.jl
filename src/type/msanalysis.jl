@@ -26,7 +26,7 @@ end
 # end
 
 abstract type AbstractWindow end
-abstract type ZeroCenteredtWindow end
+abstract type ZeroCenteredWindow end
 
 """
     GaussianWindow <: AbstractWindow 
@@ -110,7 +110,7 @@ Rectangular window.
 struct RectWindow <: AbstractWindow end
 
 """
-    SampledGaussianWindow <: ZeroCenteredtWindow 
+    SampledGaussianWindow <: ZeroCenteredWindow 
 
 Sampled gaussian window.
 
@@ -120,7 +120,7 @@ Sampled gaussian window.
 ## Arguments
 * `t`: variance.
 """
-struct SampledGaussianWindow <: ZeroCenteredtWindow end
+struct SampledGaussianWindow <: ZeroCenteredWindow end
 
 """
     SuperGaussianWindow <: AbstractWindow 
@@ -174,7 +174,7 @@ Generic MS Analyzer.
     * `Vector{<:Real}`: multiple center m/z values.
     * `Tuple{<:Real, <:Real}`: m/z range.
     * `Nothing`: m/z value not specified.
-* `accuracy`: m/z accuracy, either a number or a `Criteria`.
+* `accuracy`: m/z accuracy, either a number or a [`Criteria`](@ref).
 * `fwhm_mz`: a function mapping m/z value to fwhm.
 * `digits`: digits of m/z value. `nothing` indicates no limit on digits.
 * `stepsize`: step size for discrete mass scan such as quadrupole. It must be multiples of `10 ^ (-digits)`. If `digits` is `nothing`, `stepsize` is `nothing` as well.
@@ -200,7 +200,7 @@ Quadrupole MS Analyzer.
     * `Vector{<:Real}`: multiple center m/z values.
     * `Tuple{<:Real, <:Real}`: m/z range.
     * `Nothing`: m/z value not specified.
-* `accuracy`: m/z accuracy, either a number or a `Criteria`.
+* `accuracy`: m/z accuracy, either a number or a [`Criteria`](@ref).
 * `fwhm::Real`: m/z fwhm.
 * `digits`: digits of m/z value. `nothing` indicates no limit on digits.
 * `stepsize`: step size for mass scan. It must be multiples of `10 ^ (-digits)`. If `digits` is `nothing`, `stepsize` is `nothing` as well.
@@ -212,7 +212,7 @@ Quadrupole MS Analyzer.
 * `offset::Real`: m/z offset of the center of window. The resulting m/z center will be `mz + offset`.
 * `unit::Real`: unit mass resolution (fwhm); the largest fwhm that remains gaussian. Window function becomes super gaussian (flat top) for fwhm larger than unit.
 * `flatness::Real`: how flat is the gaussian fall-off of the super gaussian function. Practical values range from 10 to 1000. 
-* `taperproportion::Real`: the proportion of the window that is tapered for `TukeyWindow` (used in single m/z isolation). Practical values range from 0.1 to 8. 
+* `taperproportion::Real`: the proportion of the window that is tapered for [`TukeyWindow`](@ref) (used in single m/z isolation). Practical values range from 0.1 to 8. 
 """
 struct Quadrupole{W, M} <: AbstractMSAnalyzer{W, M}
     window::W
@@ -255,7 +255,7 @@ Quadrupole Ion Trap (QIT) MS Analyzer.
     * `Vector{<:Real}`: multiple center m/z values.
     * `Tuple{<:Real, <:Real}`: m/z range.
     * `Nothing`: m/z value not specified.
-* `accuracy`: m/z accuracy, either a number or a `Criteria`.
+* `accuracy`: m/z accuracy, either a number or a [`Criteria`](@ref).
 * `fwhm::Real`: m/z fwhm.
 * `digits`: digits of m/z value. `nothing` indicates no limit on digits.
 * `stepsize`: step size for mass scan. It must be multiples of `10 ^ (-digits)`. If `digits` is `nothing`, `stepsize` is `nothing` as well.
@@ -265,7 +265,7 @@ Quadrupole Ion Trap (QIT) MS Analyzer.
 
 ## Arguments
 * `offset::Real`: m/z offset of the center of window. The resulting m/z center will be `mz + offset`.
-* `power::Real`: the power of super gaussian function (used in SWIFT isolation). Practical values range from 4 to 8. 
+* `power::Real`: the power of [`SuperGaussianWindow`](@ref) function (used in SWIFT isolation). Practical values range from 4 to 8. 
 """
 @doc doc_qit
 struct QuadrupoleIonTrap{W, M} <: AbstractMSAnalyzer{W, M} 
@@ -303,7 +303,7 @@ Linear Ion Trap (LIT) MS Analyzer.
     * `Vector{<:Real}`: multiple center m/z values.
     * `Tuple{<:Real, <:Real}`: m/z range.
     * `Nothing`: m/z value not specified.
-* `accuracy`: m/z accuracy, either a number or a `Criteria`.
+* `accuracy`: m/z accuracy, either a number or a [`Criteria`](@ref).
 * `fwhm::Real`: m/z fwhm.
 * `digits`: digits of m/z value. `nothing` indicates no limit on digits.
 * `stepsize`: step size for mass scan. It must be multiples of `10 ^ (-digits)`. If `digits` is `nothing`, `stepsize` is `nothing` as well.
@@ -313,7 +313,7 @@ Linear Ion Trap (LIT) MS Analyzer.
 
 ## Arguments
 * `offset::Real`: m/z offset of the center of window. The resulting m/z center will be `mz + offset`.
-* `taperproportion::Real`: the proportion of the window that is tapered for `TukeyWindow` (used in SWIFT isolation).
+* `taperproportion::Real`: the proportion of the window that is tapered for [`TukeyWindow`](@ref) (used in SWIFT isolation).
 """
 @doc doc_lit
 struct LinearIonTrap{W, M} <: AbstractMSAnalyzer{W, M} 
@@ -354,7 +354,7 @@ Time-of-Flight (TOF) MS Analyzer.
     * `Vector{<:Real}`: multiple center m/z values.
     * `Tuple{<:Real, <:Real}`: m/z range.
     * `Nothing`: m/z value not specified.
-* `accuracy`: m/z accuracy, either a number or a `Criteria`.
+* `accuracy`: m/z accuracy, either a number or a [`Criteria`](@ref).
 * `resolution`: theoretical maximal m/z resolution. 
 * `mz50`: m/z value with half `resolution`.
 
@@ -386,7 +386,7 @@ Orbitrap MS Analyzer.
     * `Vector{<:Real}`: multiple center m/z values.
     * `Tuple{<:Real, <:Real}`: m/z range.
     * `Nothing`: m/z value not specified.
-* `accuracy`: m/z accuracy, either a number or a `Criteria`.
+* `accuracy`: m/z accuracy, either a number or a [`Criteria`](@ref).
 * `resolution`: m/z resolution @200. 
 * `mz50`: m/z value with half `resolution`.
 
@@ -415,7 +415,7 @@ Fourier-transform ion cyclotron resonance (FTICR) MS Analyzer.
     * `Vector{<:Real}`: multiple center m/z values.
     * `Tuple{<:Real, <:Real}`: m/z range.
     * `Nothing`: m/z value not specified.
-* `accuracy`: m/z accuracy, either a number or a `Criteria`.
+* `accuracy`: m/z accuracy, either a number or a [`Criteria`](@ref).
 * `resolution`: m/z resolution @200. 
 * `mz50`: m/z value with half `resolution`.
 
@@ -448,20 +448,22 @@ A type containing settings and results of coelution isobars.
 # Fields
 * `elution::Vector{<:Pair}`: elution function (e.g. `retentiontime`)-criteria pairs. 
 * `msanalyzer::Vector{<:Pair}`: msanalyzer-abundance criteria pairs.
-* `target::Table`: a table of target chemicals in the form of `Isotopomers`.
-* `isobar::Table`: a table of potential isobars in the form of `Isotopomers`.
+* `target::Table`: a table of target chemicals in the form of [`Isotopomers`](@ref).
+* `isobar::Table`: a table of potential isobars in the form of [`Isotopomers`](@ref).
 * `tables::Vector`: tables of isotopologues of each target chemicals.
 
-The index of `msanalyzer` matches the index of transition of chemicals. Filtering only occurs on transitions that corresponding msanalyzer has a vector of target mz (this supposes to be empty, but it's fine with some elements). If `msanalyzer` is shorter, no filtering is applied for the transitions that have no corresponding msanalyzer.
+Each `msanalyzer` correpsonds to each ms stage of the transition. 
+No filtering for the ms stages that corresponding msanalyzer are `nothing`. 
+If `msanalyzer` is shorter, no filtering is applied for the transitions that have no corresponding msanalyzer.
 
 # Constructors
-    CoelutingIsobars(elution, msanalyzer, table::Table; ci_filter = 2, kwargs...)
-    CoelutingIsobars(elution, msanalyzer, target::Table, isobar::Table; ci_filter = 2)
+    CoelutingIsobars(elution, msanalyzer, table::Table; nfilter = 2, kwargs...)
+    CoelutingIsobars(elution, msanalyzer, target::Table, isobar::Table; nfilter = 2)
 
 ## Arguments
-* `table::Table`: table of target chemicals not in the form of `Isotopomers`; `target` and `isobar` are generated from this table. 
-* `ci_filter::Int`: number of step to filter isobars. `0` means no filtering, and `tables` would be empty; `1` means filtering by only `elution`; `2` means filtering by both `elution` and `msanalyzer`.
-* Other keyword arguments are for `Isotopologues` to generate `isobar` from `table`.
+* `table::Table`: table of target chemicals not in the form of [`Isotopomers`](@ref); `target` and `isobar` are generated from this table. 
+* `nfilter::Int`: number of step to filter isobars. `0` means no filtering, and `tables` would be empty; `1` means filtering by only `elution`; `2` means filtering by both `elution` and `msanalyzer`.
+* Other keyword arguments are for [`Isotopologues`](@ref) to generate `isobar` from `table`.
 """
 struct CoelutingIsobars 
     elution::Vector{<:Pair}
@@ -471,17 +473,17 @@ struct CoelutingIsobars
     tables::Vector
 end
 
-function CoelutingIsobars(elution, ms, table::Table; ci_filter = 2, kwargs...) 
+function CoelutingIsobars(elution, msanalyzer, table::Table; nfilter = 2, kwargs...) 
     isobar = TandemIsotopologues(table; kwargs...)
     target = isobar[[findfirst(x -> ischemicalequal(x, y), isobar.Chemical) for y in table.Chemical]]
-    CoelutingIsobars(elution, ms, target, isobar; ci_filter)
+    CoelutingIsobars(elution, msanalyzer, target, isobar; nfilter)
 end
 
-function CoelutingIsobars(elution, msanalyzer, target::Table, isobar::Table; ci_filter = 2) 
+function CoelutingIsobars(elution, msanalyzer, target::Table, isobar::Table; nfilter = 2) 
     ci = CoelutingIsobars(elution, msanalyzer, target, isobar, Any[])
-    ci_filter < 1 && return ci 
+    nfilter < 1 && return ci 
     elution_filter!(ci)
-    ci_filter -= 1
-    ci_filter < 1 && return ci 
+    nfilter -= 1
+    nfilter < 1 && return ci 
     ms_filter!(ci)
 end

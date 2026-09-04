@@ -1,318 +1,6 @@
-# AME 2020
-const MASS = Dict{String, float(Int)}(
-    ""          => 0.0,
-    "C"         => 12.0,
-    "[12C]"     => 12.0,
-    "[13C]"     => 13.003354835336,
-    # "[14C]"   => 14.003241989,
-    "H"         => 1.007825031898,
-    "[1H]"      => 1.007825031898,
-    "D"         => 2.014101777844,
-    "[2H]"      => 2.014101777844,
-    "O"         => 15.994914619257,
-    "[16O]"     => 15.994914619257,
-    "[17O]"     => 16.999131755953,
-    "[18O]"     => 17.999159612136,
-    "N"         => 14.003074004251,
-    "[14N]"     => 14.003074004251,
-    "[15N]"     => 15.000108898266,
-    "P"         => 30.973761997677,
-    "[31P]"     => 30.973761997677,
-    "S"         => 31.9720711735,
-    "[32S]"     => 31.9720711735,
-    "[33S]"     => 32.9714589086,
-    "[34S]"     => 33.96786701,
-    "[36S]"     => 35.96708069,
-    "Li"        => 7.016003434,
-    "[7Li]"     => 7.016003434,
-    "[6Li]"     => 6.0151228874,
-    "Na"        => 22.9897692820,
-    "[23Na]"    => 22.9897692820,
-    "K"         => 38.963706485,
-    "[39K]"     => 38.963706485,
-    "[40K]"     => 39.96399817,
-    "[41K]"     => 40.961825256,
-    "F"         => 18.9984031621,
-    "[19F]"     => 18.9984031621,
-    "Cl"        => 34.96885269,
-    "[35Cl]"    => 34.96885269,
-    "[37Cl]"    => 36.96590257,
-    "Ag"        => 106.9050915,
-    "[108Ag]"   => 106.9050915,
-    "[109Ag]"   => 108.9047558,
-    "Se"        => 79.916521761,
-    "[74Se]"    => 73.922475933,
-    # "[75Se]"    => 74.922522870,
-    "[76Se]"    => 75.919213702,
-    "[77Se]"    => 76.919914150,
-    "[78Se]"    => 77.917309244,
-    "[80Se]"    => 79.916521761,
-    "[82Se]"    => 81.916699531
-    # "Mg"        => 23.98504168,
-    # "[24Mg]"    => 23.98504168,
-    # "[25Mg]"    => 24.985836966,
-    # "[26Mg]"    => 25.982592972
-)
-
-# CIAAW
-const ABUNDANCE = Dict{String, float(Int)}(
-    ""          => 1.0,
-    "C"         => 0.989165,
-    "[12C]"     => 0.989165,
-    "[13C]"     => 0.010835,    # C3: [0.010 674, 0.010 827], C4: [0.010 881, 0.010 958], use mean
-    # "[14C]"     => 1e-12,
-    "H"         => 0.9998576,
-    "[1H]"      => 0.9998576,
-    "D"         => 0.0001424,   # Non-marine organisms: [0.000 1188, 0.000 1660]
-    "[2H]"      => 0.0001424,   # Non-marine organisms: [0.000 1188, 0.000 1660]
-    "O"         => 0.9975835,
-    "[16O]"     => 0.9975835,
-    "[17O]"     => 0.0003835,   # [0.000 367, 0.000 400]
-    "[18O]"     => 0.0020330,   # Cellulose, lipids, and tissue: [0.001 9918, 0.002 0742]
-    "N"         => 0.99637,
-    "[14N]"     => 0.99637,
-    "[15N]"     => 0.00363,     # Plants and animals: [0.003 484, 0.003 776]
-    "P"         => 1.0,
-    "[31P]"     => 1.0,
-    "S"         => 0.9500205, 
-    "[32S]"     => 0.9500205, 
-    "[33S]"     => 0.00763,     # [0.007 29, 0.007 97]
-    "[34S]"     => 0.0421915,   # Animals: [0.041571, 0.042812]
-    "[36S]"     => 0.000158,    # [0.000 129, 0.000 187]
-    "Li"        => 0.92409,     # LSVEC
-    "[7Li]"     => 0.92409,     # LSVEC
-    "[6Li]"     => 0.07591, 
-    "Na"        => 1.0,
-    "[23Na]"    => 1.0,
-    "K"         => 0.932581,
-    "[39K]"     => 0.932581,
-    "[40K]"     => 0.000117,
-    "[41K]"     => 0.067302,
-    "F"         => 1.0,
-    "[19F]"     => 1.0,
-    "Cl"        => 0.75773,
-    "[35Cl]"    => 0.75773,
-    "[37Cl]"    => 0.24227,     # SMOC
-    "Ag"        => 0.51839,
-    "[108Ag]"   => 0.51839,
-    "[109Ag]"   => 0.48161,
-    "Se"        => 0.49803,
-    "[74Se]"    => 0.008393,
-    # "[75Se]"    => 74.922522870,
-    "[76Se]"    => 0.09237,
-    "[77Se]"    => 0.07607,
-    "[78Se]"    => 0.236922,
-    "[80Se]"    => 0.49803,
-    "[82Se]"    => 0.088215
-    # "Mg"        => 0.78965, # [0.7888, 0.7905]
-    # "[24Mg]"    => 0.78965, # [0.7888, 0.7905]
-    # "[25Mg]"    => 0.1001, # [0.099 88, 0.100 34]
-    # "[26Mg]"    => 0.11025 # [0.1096, 0.1109]
-)
-
-const ISOTOPES = Dict{String, Vector{String}}(
-    ""   => [""],
-    "C"  => ["[12C]", "[13C]"],
-    "H"  => ["[1H]", "D"],
-    "O"  => ["[16O]", "[18O]", "[17O]"],
-    "N"  => ["[14N]", "[15N]"],
-    "P"  => ["[31P]"],
-    "S"  => ["[32S]", "[34S]", "[33S]", "[36S]"],
-    "Li" => ["[7Li]", "[6Li]"],
-    "Na" => ["[23Na]"],
-    "K"  => ["[39K]", "[41K]", "[40K]"],
-    "F"  => ["[19F]"],
-    "Cl" => ["[35Cl]", "[37Cl]"],
-    "Ag" => ["[108Ag]", "[109Ag]"],
-    "Se" => ["[80Se]", "[78Se]", "[76Se]", "[82Se]", "[77Se]", "[74Se]"]
-    # "Mg" => ["[24Mg]", "[26Mg]", "[25Mg]"]
-) 
-
-const PARENTS = Dict{String, String}(
-    ""          => "",
-    "C"         => "C",
-    "[12C]"     => "C",
-    "[13C]"     => "C",
-    # "[14C]"   => "C",
-    "H"         => "H",
-    "[1H]"      => "H",
-    "D"         => "H",
-    "[2H]"      => "H",
-    "O"         => "O",
-    "[16O]"     => "O",
-    "[17O]"     => "O",
-    "[18O]"     => "O",
-    "N"         => "N",
-    "[14N]"     => "N",
-    "[15N]"     => "N",
-    "P"         => "P",
-    "[31P]"     => "P",
-    "S"         => "S", 
-    "[32S]"     => "S", 
-    "[33S]"     => "S",
-    "[34S]"     => "S",
-    "[36S]"     => "S",
-    "Li"        => "Li",
-    "[7Li]"     => "Li",
-    "[6Li]"     => "Li", 
-    "Na"        => "Na",
-    "[23Na]"    => "Na",
-    "K"         => "K",
-    "[39K]"     => "K",
-    "[40K]"     => "K",
-    "[41K]"     => "K",
-    "F"         => "F",
-    "[19F]"     => "F",
-    "Cl"        => "Cl",
-    "[335Cl]"   => "Cl",
-    "[37Cl]"    => "Cl",
-    "Ag"        => "Ag",
-    "[108Ag]"   => "Ag",
-    "[109Ag]"   => "Ag",
-    "Se"        => "Se",
-    "[74Se]"    => "Se",
-    # "[75Se]"    => "Se",
-    "[76Se]"    => "Se",
-    "[77Se]"    => "Se",
-    "[78Se]"    => "Se",
-    "[80Se]"    => "Se",
-    "[82Se]"    => "Se"
-    # "Mg"        => "Mg",
-    # "[24Mg]"    => "Mg",
-    # "[25Mg]"    => "Mg",
-    # "[26Mg]"    => "Mg"
-)
-
-const DECODES = Dict{String, String}(
-    ""          => "",
-    "C"         => "C",
-    "Citz"      => "[12C]",
-    "Citn"      => "[13C]",
-    # "Citnn"     => "C",
-    "H"         => "H",
-    "Hitz"      => "[1H]",
-    "D"         => "D",
-    "Hitn"      => "D",
-    "O"         => "O",
-    "Oitz"      => "[16O]",
-    "Oitn"      => "[17O]",
-    "Oitnn"     => "[18O]",
-    "N"         => "N",
-    "Nitz"      => "[14N]",
-    "Nitn"      => "[15N]",
-    "P"         => "P",
-    "Pitz"      => "[31P]",
-    "S"         => "S", 
-    "Sitz"      => "[32S]",
-    "Sitn"      => "[33S]",
-    "Sitnn"     => "[34S]",
-    "Sitnnnn"   => "[36S]",
-    "Li"        => "Li",
-    "Liitz"     => "[7Li]", 
-    "Liitp"     => "[6Li]", 
-    "Na"        => "Na",
-    "Naitz"     => "[23Na]",
-    "K"         => "K",
-    "Kitz"      => "[39K]",
-    "Kitn"      => "[40K]",
-    "Kitnn"     => "[41K]",
-    "F"         => "F",
-    "Fitz"      => "[19F]",
-    "Cl"        => "Cl",
-    "Clitz"     => "[35Cl]",
-    "Clitnn"    => "[37Cl]",
-    "Ag"        => "Ag",
-    "Agitz"     => "[108Ag]",
-    "Agitn"     => "[109Ag]",
-    "Se"        => "Se",
-    "Seitpppppp"    => "[74Se]",
-    # "[75Se]"    => "Se",
-    "Seitpppp"  => "[76Se]",
-    "Seitppp"   => "[77Se]",
-    "Seitpp"    => "[78Se]",
-    "Seitz"     => "[80Se]",
-    "Seitnn"    => "[82Se]"
-    # "Mg"        => "Mg",
-    # "Mgitz"     => "[24Mg]",
-    # "Mgitn"     => "[25Mg]",
-    # "Mgitnn"    => "[26Mg]"
-)
-
-elements_doc = """
-    elements_mass()
-    elements_abundance()
-    elements_isotopes()
-    elements_parents()
-    elements_decodes()
-
-Access constants related to elements. 
-* `elements_mass`: atomic mass.
-* `elements_abundance`: natrural abundance.
-* `elements_isotopes`: possible isotopes.
-* `elements_parents`: parent element. 
-* `elements_decodes`: decode encoded string for `parse_compound`.
-
-# Parent Elements and Major isotopes
-|Symbol|Major isotopes|Atomic number|Mass number|
-|--------|-------------|-----------|------------------|
-|C|[12C]|6|12|
-|H|[1H]|1|1|
-|O|[16H]|8|16|
-|N|[14N]|7|14|
-|P|[31P]|15|31|
-|S|[32S]|16|32|
-|Li|[7Li]|3|7|
-|Na|[23Na]|11|23|
-|K|[39K]|19|39|
-|F|[19F]|9|19|
-|Cl|[35Cl]|17|35|
-|Ag|[108Ag]|47|108|
-|Se|[80Se]|34|80|
-
-# Minor Isotopes
-|Minor isotopes|Atomic number|Mass number|Alternative symbol|
-|--------|-------------|-----------|------------------|
-|[13C]|6|13||
-|D|1|2|[2H]|
-|[17O]|8|17||
-|[18O]|8|18||
-|[15N]|7|15||
-|[33S]|16|33||
-|[34S]|16|34||
-|[36S]|16|36||
-|[6Li]|3|6||
-|[40K]|19|40||
-|[41K]|19|41||
-|[37Cl]|17|37||
-|[109Ag]|47|109||
-|[74Se]|34|74||
-|[76Se]|34|76||
-|[77Se]|34|77||
-|[78Se]|34|78||
-|[82Se]|34|82||
-
-By default, parent elements are considered as major isotopes possibly replaced by minor isotopes. For instance,
-* CO2 has a carbon-12 and two oxygen-16, but any minor isotopes replacements are possible.
-* [13C][16O]O has a carbon-13, an oxygen-16, and an oxygen-16 possibly replaced by other minor isotopes.
-
-One exception is that in `parent` chemical of `Isotopomers`, parent elements are major isotopes, and the number of replacement is restricted by field `isotopes`. 
-"""
-
-@doc elements_doc
-elements_mass() = MASS
-
-@doc elements_doc
-elements_abundance() = ABUNDANCE
-
-@doc elements_doc
-elements_isotopes() = ISOTOPES
-
-@doc elements_doc
-elements_parents() = PARENTS
-
-@doc elements_doc
-elements_decodes() = DECODES
-
+include(joinpath("elements", "consts.jl"))
+include(joinpath("elements", "property.jl"))
+include(joinpath("elements", "manipulation.jl"))
 
 """
     set_element!(element, mass, abundance; minor_name = nothing)
@@ -347,68 +35,205 @@ function set_element!(element::AbstractString, mass, abundance; minor_name = not
     MASS
 end
 
-const ME = 0.00054857990924
-
 """
-    iselement(x::AbstractString) -> Bool
+    chemicalformula(elements::Dict; delim = "", unique = true, ischemical = true, loss = false) -> String
+    chemicalformula(elements::Dictionary; delim = "", unique = true, ischemical = true, loss = false) -> String
+    chemicalformula(elements::Vector{<:Pair}; delim = "", unique = true, ischemical = true, loss = false) -> String
+    chemicalformula(elements::ElementsVector; delim = "", unique = true, ischemical = true, loss = false) -> String
 
-Determine if `x` is an element.
-"""
-iselement(x::AbstractString) = haskey(elements_isotopes(), x)
+Create chemical formula using given element-number pairs. 
 
+# Arguments
+* `delim::Union{String, Char}` assigns the delimiter between each element.
+* `unique::Bool` determines whether combines the elements to become unique or not.
+* `ischemical::Bool` determines whether the chemical is a chemical or a scheme. 
+* `loss::Bool` determines whether the chemical is part of chemical loss, and signs are factored out from elements. 
 """
-    isisotope(x::AbstractString) -> Bool
-
-Determine if `x` is an isotope (including element).
-"""
-isisotope(x::AbstractString) = haskey(elements_mass(), x)
-
-"""
-    ismajor(x::AbstractString) -> Bool
-
-Determine if `x` is the major isotope.
-"""
-ismajor(x::AbstractString) = x == major_isotope(x)
-
-"""
-    isminor(x::AbstractString, i::Int = 1) -> Bool
-
-Determine if `x` is the `i`th minor isotope.
-"""
-isminor(x::AbstractString, i::Int = 1) = x == minor_isotope(x, i)
-
-"""
-    parent_element(x::AbstractString) -> String
-
-Parent elements of isotope `x`.
-"""
-parent_element(x::AbstractString) = get(elements_parents(), x, "")
-
-"""
-    major_isotope(x::AbstractString) -> String
-
-Major isotope of isotope `x`.
-"""
-function major_isotope(x::AbstractString) 
-    e = parent_element(x)
-    if haskey(elements_isotopes(), e)
-        first(elements_isotopes()[e])
+function chemicalformula(elements::Vector{<:Pair}; delim = "", unique = true, loss = false, ischemical = true)
+    if unique 
+        chemicalformula(dictionary_elements(Dictionary, elements); unique = false, loss, ischemical, delim)
+    elseif all(x -> last(x) >= 0, elements)
+        string(ischemical ? "" : loss ? "-" : "+", join((v == 1 ? k : string(k, v) for (k, v) in elements if v != 0), delim))
+    elseif all(x -> last(x) <= 0, elements)
+        string(loss ? "+" : "-", join((v == -1 ? k : string(k, abs(v)) for (k, v) in elements if v != 0), delim))
+    elseif ischemical
+        chemicalformula(dictionary_elements(Dictionary, elements); unique = false, loss, ischemical, delim)
     else
-        "" 
+        elements_pos = filter(x -> last(x) > 0, elements)
+        elements_neg = filter(x -> last(x) < 0, elements)
+        string(loss ? "+" : "-", join((v == -1 ? k : string(k, abs(v)) for (k, v) in elements_neg), delim), loss ? "-" : "+", join((v == 1 ? k : string(k, v) for (k, v) in elements_pos), delim))
+    end
+end
+
+chemicalformula(elements::Dict; delim = "", unique = true, loss = false, ischemical = true) = _chemicalformula(elements; delim, unique, loss, ischemical)
+chemicalformula(elements::Dictionary; delim = "", unique = true, loss = false, ischemical = true) = _chemicalformula(pairs(elements); delim, unique, loss, ischemical)
+chemicalformula(elements::ElementsVector; delim = "", unique = true, loss = false, ischemical = true) = _chemicalformula(elements; delim, unique, loss, ischemical)
+
+function _chemicalformula(elements; delim = "", unique = false, loss = false, ischemical = true)
+    if all(x -> last(x) >= 0, elements)
+        string(ischemical ? "" : loss ? "-" : "+", join((v == 1 ? k : string(k, v) for (k, v) in elements if v != 0), delim))
+    elseif all(x -> last(x) <= 0, elements)
+        string(loss ? "+" : "-", join((v == -1 ? k : string(k, abs(v)) for (k, v) in elements if v != 0), delim))
+    else
+        elements_pos = filter(x -> last(x) > 0, elements)
+        elements_neg = filter(x -> last(x) < 0, elements)
+        string(loss ? "+" : "-", join((v == -1 ? k : string(k, abs(v)) for (k, v) in elements_neg), delim), loss ? "-" : "+", join((v == 1 ? k : string(k, v) for (k, v) in elements_pos), delim))
     end
 end
 
 """
-    minor_isotope(x::AbstractString, i = 1) -> String
+    chemicalelements(formula::AbstractString; loss = false) -> Vector{Pair{String, Int}}
 
-`i`th minor isotope of isotope `x`.
+Create element-number pairs from chemical formula. 
+
+# Arguments
+* `loss::Bool` determines whether the chemical is part of chemical loss, and sign flips are propagated into elements.
 """
-function minor_isotope(x::AbstractString, i::Int = 1)
-    e = parent_element(x)
-    if haskey(elements_isotopes(), e)
-        v = elements_isotopes()[e]
-        i < lastindex(v) ? v[i + 1] : "" 
+function chemicalelements(formula::AbstractString; loss = false, kwargs...)
+    fs = split(formula, "+")
+    v = Vector{Pair{String, Int}}[]
+    for f in fs 
+        fns = split(f, "-")
+        fp = popfirst!(fns)
+        isempty(fp) || push!(v, [elements_decodes()[k] => v * (loss ? -1 : 1) for (k, v) in parse_compound(encode_isotopes(fp))])
+        for fn in fns
+            isempty(fn) || push!(v, [elements_decodes()[k] => v * (loss ? 1 : -1) for (k, v) in parse_compound(encode_isotopes(fn))])
+        end
+    end
+    vcat(v...)::Vector{Pair{String, Int}}
+end
+
+function encode_isotopes(formula::AbstractString)
+    f = string(formula)
+    f2 = f
+    for i in eachmatch(r"\[(\d*)([^\]]*)\]", f)
+        m, e = i
+        delta = isempty(m) ? 0 : (parse(Int, m) - round(Int, elements_mass()[e]))
+        e = delta > 0 ? string(e, "it") * "n" ^ delta :
+            delta < 0 ? string(e, "it") * "p" ^ abs(delta) : string(e, "itz")
+        f2 = replace(f2, i.match => e)
+    end
+    f2
+end
+
+chemicalformula(cc::Chemical; unique = false, kwargs...) = chemicalformula(cc.elements; unique, kwargs...)
+chemicalformula(cc::FormulaChemical; unique = false, kwargs...) = chemicalformula(cc.elements; unique, kwargs...)
+chemicalformula(isobars::Isobars; kwargs...) = chemicalformula(chemicalentity(isobars); kwargs...)::String
+function chemicalformula(x::Isotopomers; kwargs...) 
+    elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); loss = false))
+    chemicalformula(isotopeelements(elements, x.isotopes); kwargs...)
+end
+
+function isotopeelements(elements, isotopes)
+    for (k, v) in isotopes
+        e = get(elements_parents(), k, k) 
+        k == e && continue 
+        v == 0 && continue
+        elements[e] -= v 
+        get!(elements, k, 0)
+        elements[k] += v 
+    end
+    elements
+end
+isotopeelements_vec(elements, isotopes) = collect(pairs(isotopeelements(elements, isotopes)))
+
+function chemicalformula(x::Groupedisotopomers; kwargs...) 
+    elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); loss = false))
+    chemicalformula(isotopeelements(elements, x.isotopes[begin]); kwargs...)
+end
+chemicalformula(ct::ChemicalTransition; kwargs...) = chemicalformula(chemicalentity(ct); kwargs...)::String
+
+chemicalformula(sch::AbstractCompleteScheme; kwargs...) = chemicalformula(elementalscheme(sch); kwargs...)
+chemicalformula(sch::ElementalScheme{false}; loss = false, kwargs...) = chemicalformula(sch.chemical; loss = !loss, kwargs..., ischemical = false)
+chemicalformula(sch::ElementalScheme{true}; loss = false, kwargs...) = chemicalformula(sch.chemical; loss, kwargs..., ischemical = false)
+chemicalformula(x::ChemicalSchema; kwargs...) = chemicalformula(chemicalelements(x; loss = false); kwargs..., ischemical = false)
+function chemicalformula(x::IsotopomerizedSchema; kwargs...)
+    elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); loss = false))
+    chemicalformula(isotopeelements(elements, x.isotopes); kwargs..., ischemical = false)
+end
+function chemicalformula(x::Groupedisotopomerizedschema; kwargs...) 
+    elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); loss = false))
+    chemicalformula(isotopeelements(elements, x.isotopes[begin]); kwargs..., ischemical = false)
+end
+
+function reverse_formula(x, ischemical, loss) 
+    if isempty(x)
+        x
+    elseif ischemical 
+        x 
+    elseif startswith(x, r"[^+-]")
+        loss ? string("-", replace(x, "+" => "-", "-" => "+")) : string("+", x)
     else
-        ""
+        loss ? replace(x, "+" => "-", "-" => "+") : x
     end
 end
+    
+reverse_elements(x::ElementsVector, loss) = loss ? ElementsVector(x.elements, [-v for v in x.numbers]) : x
+reverse_elements(x::Vector{<:Pair}, loss) = loss ? [k => -v for (k, v) in x] : x
+reverse_elements(x::Dict, loss) = loss ? Dict(k => -v for (k, v) in x) : x
+reverse_elements(x::Dictionary, loss) = loss ? Dictionary(keys(x), [-v for v in x]) : x
+
+chemicalelements(cc::Chemical; loss = false, kwargs...) = reverse_elements(cc.elements, loss)
+chemicalelements(cc::FormulaChemical; loss = false, kwargs...) = reverse_elements(cc.elements, loss)
+chemicalelements(isobars::Isobars; kwargs...) = chemicalelements(chemicalentity(isobars); kwargs...)::Vector{Pair{String, Int}}
+function chemicalelements(x::Isotopomers; loss = false, kwargs...) 
+    elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); kwargs..., loss = false))
+    reverse_elements(isotopeelements_vec(elements, x.isotopes), loss)
+end
+
+function chemicalelements(x::Groupedisotopomers; loss = false, kwargs...) 
+    elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); kwargs..., loss = false))
+    reverse_elements(isotopeelements_vec(elements, x.isotopes[begin]), loss)
+end
+chemicalelements(ct::ChemicalTransition; loss = false, kwargs...) = chemicalelements(chemicalentity(ct); loss, kwargs...)::Vector{Pair{String, Int}}
+
+chemicalelements(sch::AbstractCompleteScheme; kwargs...) = chemicalelements(elementalscheme(sch); kwargs...)
+chemicalelements(sch::ElementalScheme{false}; loss = false, kwargs...) = chemicalelements(sch.chemical; loss = !loss, kwargs...) 
+chemicalelements(sch::ElementalScheme{true}; loss = false, kwargs...) = chemicalelements(sch.chemical; loss, kwargs...) 
+function chemicalelements(x::IsotopomerizedSchema; loss = false, kwargs...)
+    elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); kwargs..., loss = false))
+    reverse_elements(isotopeelements_vec(elements, x.isotopes), loss)
+end
+chemicalelements(x::ChemicalSchema; kwargs...) = vcat((repeat(chemicalelements(k; kwargs...), v) for (k, v) in zip(x.schema, x.number))...)
+function chemicalelements(x::Groupedisotopomerizedschema; loss = false, kwargs...) 
+    elements = dictionary_elements(Dictionary, chemicalelements(chemicalparent(x); kwargs..., loss = false))
+    reverse_elements(isotopeelements_vec(elements, x.isotopes[begin]), loss)
+end
+
+isotopomersisotopes(isobars::Isobars; kwargs...) = isotopomersisotopes(chemicalentity(isobars); kwargs...)::Vector{Pair{String, Int}}
+isotopomersisotopes(isotopomers::Isotopomers; loss = false, kwargs...) = collect(reverse_elements(isotopomers.isotopes, loss))
+isotopomersisotopes(isotopomers::Groupedisotopomers; loss = false, kwargs...) = collect(reverse_elements(isotopomers.isotopes[begin], loss))
+isotopomersisotopes(ct::ChemicalTransition; kwargs...) = isotopomersisotopes(chemicalentity(ct); kwargs...)::Vector{Pair{String, Int}}
+
+isotopomersisotopes(sch::ElementalScheme{true}; loss = false, kwargs...) = isotopomersisotopes(sch.chemical; loss, kwargs...)
+isotopomersisotopes(sch::ElementalScheme{false}; loss = false, kwargs...) = isotopomersisotopes(sch.chemical; loss = !loss, kwargs...)
+isotopomersisotopes(x::IsotopomerizedSchema; loss = false, kwargs...) = collect(reverse_elements(x.isotopes, loss))
+isotopomersisotopes(x::Groupedisotopomerizedschema; loss = false, kwargs...) = collect(reverse_elements(x.isotopes[begin], loss))
+
+isotopomerstate(sch::ElementalScheme{true}; isotope_unit = nothing, isotope = "[13C]", loss = false, kwargs...) = _isotopomerstate(isotopomersisotopes(sch; loss = false), isnothing(isotope_unit) ? elements_mass()[isotope] - elements_mass()[elements_parents()[isotope]] : isotope_unit; loss, kwargs..., ischemical = false)
+isotopomerstate(sch::ElementalScheme{false}; isotope_unit = nothing, isotope = "[13C]", loss = false, kwargs...) = _isotopomerstate(isotopomersisotopes(sch; loss = false), isnothing(isotope_unit) ? elements_mass()[isotope] - elements_mass()[elements_parents()[isotope]] : isotope_unit; loss = !loss, kwargs..., ischemical = false)
+
+function _isotopomerstate(isotopes::Vector, isotope_unit; ischemical = true, loss = false)
+    ds = 0
+    if ischemical || !loss
+        for (e, n) in isotopes
+            ds += (elements_mass()[e] - elements_mass()[elements_parents()[e]]) * n
+        end
+    else
+        for (e, n) in isotopes
+            ds += (elements_mass()[e] - elements_mass()[elements_parents()[e]]) * (-n)
+        end
+    end
+    round(Int, ds / isotope_unit)
+end
+
+groupedisotopomersisotopes(x::ElementalScheme{true}; loss = false, kwargs...) = groupedisotopomersisotopes(x.chemical; loss, kwargs...)
+groupedisotopomersisotopes(x::ElementalScheme{false}; loss = false, kwargs...) = groupedisotopomersisotopes(x.chemical; loss = !loss, kwargs...)
+groupedisotopomersisotopes(x::ChemicalSchema; loss = false, kwargs...) = Pair{String, Int}[]
+groupedisotopomersisotopes(x::Groupedisotopomers; loss = false, kwargs...) = [collect(reverse_elements(y, loss)) for y in x.isotopes]
+groupedisotopomersisotopes(x::Groupedisotopomerizedschema; loss = false, kwargs...) = [collect(reverse_elements(y, loss)) for y in x.isotopes]
+
+groupedisotopomersabundance(x::ElementalScheme; kwargs...) = groupedisotopomersabundance(x.chemical; kwargs...)
+groupedisotopomersabundance(x::ChemicalSchema; kwargs...) = [1.0]
+groupedisotopomersabundance(x::Groupedisotopomers; kwargs...) = x.abundance
+groupedisotopomersabundance(x::Groupedisotopomerizedschema; kwargs...) = x.abundance

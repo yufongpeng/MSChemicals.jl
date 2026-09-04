@@ -1,10 +1,59 @@
+
+function Base.show(io::IO, cc::AbstractChemical)
+    nm = chemicalname(cc)
+    print(io, isempty(nm) ? chemicalformula(cc) : nm)
+end
+
+function Base.show(io::IO, sch::AbstractScheme) 
+    print(io, chemicalname(sch))
+end
+
+repr_ri(ri::IntervalSet) = isempty(ri) ? "∅" : join([repr_ri(i) for i in ri.items], "∪")
+function repr_ri(ri::Interval{T, L, R}) where {T, L, R}
+    ff = L == Closed ? "[" : "("
+    ll = R == Closed ? "]" : ")"
+    f = L == Unbounded ? "-∞" : ri.first
+    l = R == Unbounded ? "∞" : ri.last
+    string(ff, f, ", ", l, ll)
+end
+
+function Base.show(io::IO, ri::IntervalSet)
+    print(io, repr_ri(ri))
+end
+
+function Base.show(io::IO, c::Criteria{A, B}) where {A<:IntervalSet, B<:IntervalSet}
+    print(io, "Criteria{IntervalSet, IntervalSet}(")
+    print(io, repr_ri(c.aval), ", ")
+    print(io, repr_ri(c.rval), ")")
+end
+
+function Base.show(io::IO, c::Criteria{A, B}) where {A<:Missing, B<:IntervalSet}
+    print(io, "Criteria{Missing, IntervalSet}(")
+    print(io, "missing, ")
+    print(io, repr_ri(c.rval), ")")
+end
+
+function Base.show(io::IO, c::Criteria{A, B}) where {A<:IntervalSet, B<:Missing}
+    print(io, "Criteria{IntervalSet, Missing}(")
+    print(io, repr_ri(c.aval), ", ")
+    print(io, "missing)")
+end
+
+function Base.show(io::IO, spec::Spectrum)
+    print(io, "Spectrum of ", round(spec.initial_mass, digits = 4), " ~ ", round(spec.initial_mass + (length(spec.spectrum) - 1) * spec.binsize, digits = 4))
+end
+
+function Base.show(io::IO, ci::CoelutingIsobars)
+    print(io, "Co-eluting isobars: ", join([measure_name(first(x)) for x in ci.elution], " -> "), " -> ", join([msanalyzer_name(first(x)) for x in ci.msanalyzer], " -> "))
+end
+
 """
     defaultname(chemical::AbstractChemicalsSchema)
 
-Default name of `chemical` if no attribute and specific method is not implemented for `chemicalname`.
+Default name of `chemical` if no attribute and specific method is not implemented for [`chemicalname`](@ref).
 """
-defaultname(::T) where {T<:AbstractChemical} = string("Chemical::", T)
-defaultname(::T) where {T<:AbstractScheme} = string("Scheme::", T)
+defaultname(::T) where {T<:AbstractChemical} = string(T)
+defaultname(::T) where {T<:AbstractScheme} = string(T)
 
 post_decorator(::ElementalScheme{false}; delim = "") = delim
 post_decorator(::ElementalScheme{false, <:FormulaChemical}; delim = "") = ""
@@ -90,51 +139,3 @@ chemicalsmiles(isobars::Isobars; kwargs...) = chemicalsmiles(chemicalentity(isob
 chemicalsmiles(isotopomers::Isotopomers; kwargs...) = chemicalsmiles(chemicalparent(isotopomers); kwargs...)
 chemicalsmiles(isotopomers::Groupedisotopomers; kwargs...) = chemicalsmiles(chemicalentity(isotopomers); kwargs...)
 chemicalsmiles(ct::ChemicalTransition; kwargs...) = chemicalsmiles(chemicalentity(ct); kwargs...)
-
-function Base.show(io::IO, cc::AbstractChemical)
-    nm = chemicalname(cc)
-    print(io, isempty(nm) ? chemicalformula(cc) : nm)
-end
-
-function Base.show(io::IO, sch::AbstractScheme) 
-    print(io, chemicalname(sch))
-end
-
-repr_ri(ri::IntervalSet) = isempty(ri) ? "∅" : join([repr_ri(i) for i in ri.items], "∪")
-function repr_ri(ri::Interval{T, L, R}) where {T, L, R}
-    ff = L == Closed ? "[" : "("
-    ll = R == Closed ? "]" : ")"
-    f = L == Unbounded ? "-∞" : ri.first
-    l = R == Unbounded ? "∞" : ri.last
-    string(ff, f, ", ", l, ll)
-end
-
-function Base.show(io::IO, ri::IntervalSet)
-    print(io, repr_ri(ri))
-end
-
-function Base.show(io::IO, c::Criteria{A, B}) where {A<:IntervalSet, B<:IntervalSet}
-    print(io, "Criteria{IntervalSet, IntervalSet}(")
-    print(io, repr_ri(c.aval), ", ")
-    print(io, repr_ri(c.rval), ")")
-end
-
-function Base.show(io::IO, c::Criteria{A, B}) where {A<:Missing, B<:IntervalSet}
-    print(io, "Criteria{Missing, IntervalSet}(")
-    print(io, "missing, ")
-    print(io, repr_ri(c.rval), ")")
-end
-
-function Base.show(io::IO, c::Criteria{A, B}) where {A<:IntervalSet, B<:Missing}
-    print(io, "Criteria{IntervalSet, Missing}(")
-    print(io, repr_ri(c.aval), ", ")
-    print(io, "missing)")
-end
-
-function Base.show(io::IO, spec::Spectrum)
-    print(io, "Spectrum of ", round(spec.initial_mass, digits = 4), " ~ ", round(spec.initial_mass + (length(spec.spectrum) - 1) * spec.binsize, digits = 4))
-end
-
-function Base.show(io::IO, ci::CoelutingIsobars)
-    print(io, "Co-eluting isobars: ", join([measure_name(first(x)) for x in ci.elution], " -> "), " -> ", join([msanalyzer_name(first(x)) for x in ci.msanalyzer], " -> "))
-end

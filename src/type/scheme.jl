@@ -28,7 +28,7 @@ struct RandomProductScheme <: AbstractStructuralScheme end
 """
     StructuralElementalScheme{T, S} <: AbstractCompleteScheme{T, S} end
 
-Default `AbstractCompleteScheme`.
+Default [`AbstractCompleteScheme`](@ref).
 
 # Fields
 * `structuralscheme::T`.
@@ -42,7 +42,8 @@ end
 """
 
     ElementalScheme{Bool, T<:AbstractChemical} <: AbstractElementalScheme
-
+    ElementalScheme(gain::Bool, chemical::T) = ElementalScheme{gain, T}(chemical)
+    
 Single scheme involving a chemical. The elements are fixed, and can be replaced by minor isotopes. 
 * `ElementalScheme{false}`: chemical loss from a precursor. This product is not detected in MS; the other part of precursor is detected instead.
 * `ElementalScheme{true}`: chemical gain to a precursor. This product is not detected in MS; the merged chemical is detected instead.
@@ -50,10 +51,9 @@ Single scheme involving a chemical. The elements are fixed, and can be replaced 
 # Fields 
 * `chemical::T`: chemical involved in scheme.
 
-Single isotopomer can be set by using `Isotopomers` as field `chemical`. Elemental scheme can be redirected to the corresponding isotopic labeled scheme in `AdductIon` by dispatching on core chemical and existing schema, or looking up the `property` for generic `Chemical`.
-
-# Constructors
-    ElementalScheme(gain::Bool, chemical::T) = ElementalScheme{gain, T}(chemical)
+Single isotopomer can be set by using [`Isotopomers`](@ref) as field `chemical`. 
+Elemental scheme can be redirected to the corresponding isotopic labeled scheme in [`AdductIon`](@ref) by dispatching on core chemical and existing schema, 
+or looking up the `property` for generic [`Chemical`](@ref).
 """
 struct ElementalScheme{Bool, T<:AbstractChemical} <: AbstractElementalScheme
     chemical::T
@@ -65,14 +65,14 @@ end
 """
     ChemicalGain(chemical)
 
-Chemical gain of `chemical`, i.e. `ElementalScheme(true, chemical)`.
+Chemical gain of `chemical`, i.e. `ElementalScheme(true, chemical)`. See [`ElementalScheme`](@ref).
 """
 ChemicalGain(x) = ElementalScheme(true, x)
 
 """
     ChemicalLoss(chemical)
 
-Chemical loss of `chemical`, i.e. `ElementalScheme(false, chemical)`.
+Chemical loss of `chemical`, i.e. `ElementalScheme(false, chemical)`. See [`ElementalScheme`](@ref).
 """
 ChemicalLoss(x) = ElementalScheme(false, x)
 
@@ -214,7 +214,7 @@ end
 """
     const CompleteSchema = Union{<:AbstractCompleteScheme, <:ChemicalSchema{<:AbstractCompleteScheme}, <:IsotopomerizedSchema{<:ChemicalSchema{<:AbstractCompleteScheme}}, <:Groupedisotopomerizedschema{<:ChemicalSchema{<:AbstractCompleteScheme}}}
 
-Complete scheme (scheme containing both `structuralscheme` and `elementalscheme`).
+Complete scheme (scheme containing both [`structuralscheme`](@ref) and [`elementalscheme`](@ref)).
 """
 const CompleteSchema = Union{<:AbstractCompleteScheme, <:ChemicalSchema{<:AbstractCompleteScheme}, <:IsotopomerizedSchema{<:ChemicalSchema{<:AbstractCompleteScheme}}, <:Groupedisotopomerizedschema{<:ChemicalSchema{<:AbstractCompleteScheme}}}
 

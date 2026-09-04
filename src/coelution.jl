@@ -62,25 +62,20 @@ end
 """
     ms_filter!(ci::CoelutingIsobars)
 
-Filter `ci.tables` for each target chemicals using `ci.msanalyzer`. Filtering only occurs on transitions that corresponding msanalyzer has a vector of target mz (this supposes to be empty, but it's fine with some elements).  
+Filter `ci.tables` for each target chemicals using `ci.msanalyzer`. No filtering for the ms stages that corresponding msanalyzer are `nothing`. 
 """
 function ms_filter!(ci::CoelutingIsobars)
     (isempty(ci.tables) || length(ci.target) != length(ci.tables)) && throw(ArgumentError("Run `elution_filter!` first."))
     msanalyzer = first.(ci.msanalyzer)
     ab_cutoff = last.(ci.msanalyzer)
-    ti = findall(x -> x.mz isa Vector, msanalyzer)
     cmz = [mz.(seriesanalyzedchemical(x)) for x in ci.target.Chemical]
     for i in eachindex(ci.target)
-        _msanalyzer = deepcopy(msanalyzer)
         mztable = ci.tables[i]
-        for j in ti 
-            push!(_msanalyzer[j].mz, cmz[i][j])
-        end
-        for (j, ma) in enumerate(_msanalyzer)
-            if j in ti 
-                mztable = Isolation(ma, mztable; stage = j, threshold = ab_cutoff[j])
-            else
+        for (j, ma) in enumerate(msanalyzer)
+            if isnothing(ma)
                 mztable = AllIons(mztable)
+            else
+                mztable = Isolation(replace_mz(ma, cmz[i][j]), mztable; stage = j, threshold = ab_cutoff[j])
             end
         end
         ci.tables[i] = mztable 

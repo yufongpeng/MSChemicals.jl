@@ -138,6 +138,7 @@ function hash(x::ElementsVector, h::UInt)
     h
 end
 
+copy(x::T) where {T<:AbstractChemicalsSchema} = T((copy(getfield(x, f)) for f in fieldnames(T))...)
 copy(x::Chemical) = Chemical(x.name, copy(x.elements), copy(x.property))
 copy(x::FormulaChemical) = FormulaChemical(copy(x.elements), copy(x.property))
 copy(x::ChemicalTransition) = ChemicalTransition(copy(x.transition))

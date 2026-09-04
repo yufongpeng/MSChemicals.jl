@@ -1,36 +1,13 @@
 """
-    match_chemical(exp, lib; colexp = :Chemical, collib = :Chemical, fnexp = detectedchemical) -> Table
-
-Match chemicals in `exp` (a `Table` or `Vector`) to chemicals in `lib` (a `Table` or `Vector`). 
-The resulting table is `exp` with matched index (column `LibID`), matched chemicals (column `Match`) and other information from `lib`.
-
-The exact chemicals being matched are converted from `exp` using `fnexp`.
-"""
-function match_chemical(exp, lib; colexp = :Chemical, collib = :Chemical, fnexp = detectedchemical)
-    del = Int[]
-    libid = Int[]
-    exp = hasproperty(exp, colexp) ? exp : Table(; Chemical = exp)
-    chemical_exp = fnexp.(getproperty(exp, colexp))
-    chemical_lib = hasproperty(lib, collib) ? getproperty(lib, collib) : lib
-    for i in eachindex(exp)
-        j = findfirst(x -> ischemicalequal(x, chemical_exp[i]), chemical_lib)
-        isnothing(j) ? push!(del, i) : push!(libid, j)
-    end
-    id = setdiff(eachindex(exp), del)
-    ps = filter(!=(collib), propertynames(lib))
-    Table(exp[id]; LibID = libid, Match = chemical_lib[libid], [p => [getproperty(lib, p)[i] for i in libid] for p in ps]...)
-end
-
-"""
     acrit(x) -> Criteria
 
-Cnstructing a `Criteria` with only absolute criteria.
+Cnstructing a [`Criteria`](@ref) with only absolute criteria.
 """
 acrit(x) = Criteria(x, missing)
 """
     rcrit(x) -> Criteria
 
-Cnstructing a `Criteria` with only relative criteria. 
+Cnstructing a [`Criteria`](@ref) with only relative criteria. 
 """
 rcrit(x) = Criteria(missing, x)
 """
@@ -38,27 +15,11 @@ rcrit(x) = Criteria(missing, x)
     crit(x::Criteria)
     crit(absolute, relative) -> Criteria
 
-Cnstructing a `Criteria`. When a non `Criteria` value is given, it consider it as absolute criteria; when two values are given, the first one is absolute, the second one is relative.
+Cnstructing a [`Criteria`](@ref). When a non `Criteria` value is given, it consider it as absolute criteria; when two values are given, the first one is absolute, the second one is relative.
 """
 crit(x) = acrit(x)
 crit(x::Criteria) = x
 crit(x, y) = Criteria(x, y)
-# crit(x::Tuple) = Criteria(x...)
-
-"""
-    between(num::Number, range; lop = <=, rop = <=)
-    between(num::Number; low, up, lop = <=, rop = <=)
-    between(num::Number, value, tol; lop = <=, rop = <=)
-
-Determine whether `num` lies in given range. 
-
-The lower bound is `first(range)`, `low`, or `value - tol`; the upper bound is `last(range)`, `up`, or `value + tol`. 
-
-`lop` and `rop` determine the operators for the lower bound and upper bound respectively.
-"""
-between(num::Number, range; lop = <=, rop = <=) = lop(first(range), num) && rop(num, last(range))
-between(num::Number; low, up, lop = <=, rop = <=) = lop(low, num) && rop(num, up)
-between(num::Number, value, tol; lop = <=, rop = <=) = lop(value - tol, num) && rop(num, value + tol)
 
 """
     @ri_str -> IntervalSet{Interval{Float64, L, R}}
@@ -172,6 +133,43 @@ function _vec_macth(regex, p)
         end
     end
 end
+
+"""
+    SESType(S::Type, T::Type) -> Type{StructuralElementalScheme{<:S, <:T}}
+    SESType(S::Type) -> Type{StructuralElementalScheme{<:S}}
+
+Convenenient function for constructing `StructuralElementalScheme` type.
+"""
+SESType(S, T) = StructuralElementalScheme{<:S, <:T}
+SESType(S) = StructuralElementalScheme{<:S}
+
+"""
+    ESType(gain::Bool, T::Type) -> Type{ElementalScheme{gain, <:T}}
+
+Convenenient function for constructing `ElementalScheme` type.
+"""
+ESType(gain::Bool, T) = ElementalScheme{gain, <:T}
+
+"""
+    CLType(T::Type) -> Type{ElementalScheme{false, <:T}}
+
+Convenenient function for constructing `ElementalScheme{false}` type (chemical loss).
+"""
+CLType(T) = ESType(false, T)
+
+"""
+    CGType(T::Type) -> Type{ElementalScheme{true, <:T}}
+
+Convenenient function for constructing `ElementalScheme{true}` type (chemical gain).
+"""
+CGType(T) = ESType(true, T)
+
+"""
+    AIType(S, T) -> Type{AdductIon{<:S, <:T}}
+
+Convenenient function for constructing `AdductIon` type. 
+"""
+AIType(S, T) = AdductIon{<:S, <:T}
 
 """
     lastcolnum([output::Type,] ptnames, col; error = true, init = nothing)

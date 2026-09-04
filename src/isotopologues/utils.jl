@@ -9,7 +9,7 @@ Detected chemical and dictionary of elements.
 function detectedchemicaldata(precursor, product)
     sch = completescheme(precursor, product)
     det = detectedchemical(precursor, sch)
-    sch, det, unique_elements(Vector{Pair}, chemicalelements(det))
+    completeschemechemical(sch), det, unique_elements(Vector{Pair}, chemicalelements(det))
 end
 
 """
@@ -22,8 +22,9 @@ function serieschemicaldata(input_chemical)
     det = AbstractChemical[]
     precursor = nothing
     for c in chemicaltransition(input_chemical) 
-        push!(sch, completescheme(precursor, c))
-        push!(det, detectedchemical(precursor, last(sch)))
+        sc = completescheme(precursor, c)
+        push!(sch, completeschemechemical(sc))
+        push!(det, detectedchemical(precursor, sc))
         precursor = last(det)
     end
     v = map(eachindex(sch)) do i 
